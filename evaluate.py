@@ -49,7 +49,7 @@ def _evaluate_classical(model_name: str, config) -> dict:
     """
     from data.dataset import get_text_data
 
-    _, _, X_test, _, _, y_test = get_text_data(config)
+    (_, _), (_, _), (X_test, y_test) = get_text_data(config)
 
     model_path = config.get_path("outputs.models_dir") / f"{model_name}_best.joblib"
 
@@ -91,7 +91,7 @@ def _evaluate_deep_learning(model_name: str, seed: int, config) -> dict:
         from models.bilstm import BiLSTMClassifier, SimpleVocab, bilstm_collate_fn
         from data.dataset import get_text_data
 
-        _, _, X_test, _, _, y_test = get_text_data(config)
+        (_, _), (_, _), (X_test, y_test) = get_text_data(config)
         label_order = config.label_order
 
         # Load checkpoint
@@ -109,7 +109,7 @@ def _evaluate_deep_learning(model_name: str, seed: int, config) -> dict:
             vocab.idx2word = checkpoint["vocab"]["idx2word"]
         else:
             from data.dataset import get_text_data as _gtd
-            X_train, _, _, _, _, _ = _gtd(config)
+            (X_train, _), (_, _), (_, _) = _gtd(config)
             vocab.build(X_train)
 
         # Prepare test data
@@ -256,7 +256,7 @@ def main() -> None:
         metrics = _evaluate_classical(args.model, config)
         # For classical models, re-run prediction to get y_true/y_pred for plots
         from data.dataset import get_text_data
-        _, _, X_test, _, _, y_test = get_text_data(config)
+        (_, _), (_, _), (X_test, y_test) = get_text_data(config)
         if args.model == "random_forest":
             from models.random_forest import RandomForestSeverityClassifier
             model_path = config.get_path("outputs.models_dir") / f"{args.model}_best.joblib"

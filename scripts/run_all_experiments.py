@@ -52,7 +52,7 @@ def train_classical_model(
     from utils import save_metrics
 
     set_seed(seed)
-    X_train, X_val, X_test, y_train, y_val, y_test = get_text_data(config)
+    (X_train, y_train), (X_val, y_val), (X_test, y_test) = get_text_data(config)
 
     if model_name == "random_forest":
         from models.random_forest import RandomForestSeverityClassifier
