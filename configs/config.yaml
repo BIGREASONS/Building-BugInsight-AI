@@ -1,0 +1,131 @@
+# =============================================================================
+# BugInsight AI — Master Configuration
+# =============================================================================
+# All experiments, training runs, and evaluations are driven by this file.
+# No hardcoded values should exist anywhere in the codebase.
+
+# ---------------------------------------------------------------------------
+# Reproducibility
+# ---------------------------------------------------------------------------
+seed: 42
+seeds_for_experiments: [42, 123, 456, 789, 999]
+
+# ---------------------------------------------------------------------------
+# Dataset Configuration
+# ---------------------------------------------------------------------------
+dataset:
+  name: "bugzilla"                     # Options: bugzilla, defects4j, custom
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  processed_file: "data/processed/bugs_standardized.csv"
+  test_size: 0.15
+  val_size: 0.15
+  max_text_length: 512                 # Max tokens for transformer models
+  severity_mapping:
+    # Source labels → standardized labels
+    blocker: "Critical"
+    critical: "Critical"
+    major: "Major"
+    normal: "Minor"
+    minor: "Minor"
+    trivial: "Trivial"
+    enhancement: "__REMOVE__"
+    feature: "__REMOVE__"
+  label_order: ["Critical", "Major", "Minor", "Trivial"]
+  num_classes: 4
+
+# ---------------------------------------------------------------------------
+# Model Configurations
+# ---------------------------------------------------------------------------
+models:
+  random_forest:
+    n_estimators: 300
+    max_depth: null
+    min_samples_split: 5
+    tfidf_max_features: 10000
+    tfidf_ngram_range: [1, 2]
+
+  xgboost:
+    n_estimators: 300
+    max_depth: 6
+    learning_rate: 0.1
+    subsample: 0.8
+    colsample_bytree: 0.8
+    tfidf_max_features: 10000
+    tfidf_ngram_range: [1, 2]
+
+  bilstm:
+    embedding_dim: 128
+    hidden_dim: 256
+    num_layers: 2
+    dropout: 0.3
+    bidirectional: true
+    vocab_size: 30000
+    max_length: 256
+    learning_rate: 0.001
+    batch_size: 32
+    epochs: 20
+    patience: 5                        # Early stopping patience
+
+  codebert:
+    model_name: "microsoft/codebert-base"
+    max_length: 512
+    learning_rate: 2.0e-5
+    weight_decay: 0.01
+    warmup_ratio: 0.1
+    batch_size: 16
+    epochs: 10
+    patience: 3                        # Early stopping patience
+    gradient_accumulation_steps: 2
+    fp16: true                         # Mixed precision for T4 GPUs
+
+# ---------------------------------------------------------------------------
+# Training Configuration
+# ---------------------------------------------------------------------------
+training:
+  device: "auto"                       # auto, cpu, cuda
+  num_workers: 4
+  pin_memory: true
+  gradient_clip_max_norm: 1.0
+  checkpoint_dir: "outputs/models"
+  save_best_only: true
+  resume: false
+  resume_checkpoint: null
+
+# ---------------------------------------------------------------------------
+# Evaluation Configuration
+# ---------------------------------------------------------------------------
+evaluation:
+  metrics_dir: "outputs/metrics"
+  figures_dir: "outputs/figures"
+  generate_confusion_matrix: true
+  generate_training_curves: true
+  generate_class_distribution: true
+
+# ---------------------------------------------------------------------------
+# Cloud Configuration
+# ---------------------------------------------------------------------------
+cloud:
+  platform: "kaggle"                   # kaggle, colab, local
+  kaggle_gpu_type: "T4x2"
+  upload_to_hf: false
+  hf_repo_id: null
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging:
+  level: "INFO"
+  log_dir: "outputs/logs"
+  log_to_file: true
+  log_to_console: true
+
+# ---------------------------------------------------------------------------
+# Outputs
+# ---------------------------------------------------------------------------
+outputs:
+  base_dir: "outputs"
+  metrics_dir: "outputs/metrics"
+  models_dir: "outputs/models"
+  logs_dir: "outputs/logs"
+  figures_dir: "outputs/figures"

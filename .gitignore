@@ -1,0 +1,45 @@
+# =============================================================================
+# BugInsight AI — .gitignore
+# =============================================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Outputs (tracked selectively)
+outputs/models/
+outputs/logs/
+outputs/figures/*.png
+outputs/metrics/*.json
+
+# Data (raw data should not be committed)
+data/raw/
+data/processed/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Misc
+*.zip
+*.tar.gz

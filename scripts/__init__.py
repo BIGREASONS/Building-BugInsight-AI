@@ -1,0 +1,1 @@
+"""BugInsight AI — Scripts package."""
