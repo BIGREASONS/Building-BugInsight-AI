@@ -218,7 +218,10 @@ async def _run_swarm(job_id: str):
             "severity_agent": "Severity Agent",
             "root_cause_agent": "Root Cause Agent",
             "fix_agent": "Fix Agent",
+            "validation_agent": "Validation Agent",
             "test_agent": "Test Agent",
+            "test_execute_agent": "Test Execution Agent",
+            "auto_rescan_agent": "Auto-Rescan Agent",
             "github_agent": "GitHub Agent",
             "sprint_agent": "Sprint Agent",
         }
@@ -257,8 +260,17 @@ async def _run_swarm(job_id: str):
                         payload["fix_summary"] = state.get("fix_summary", "")
                         payload["patched_code"] = state.get("patched_code", "")
                         payload["risk_assessment"] = state.get("risk_assessment", "")
+                    elif node_name == "validation_agent":
+                        payload["validation_score"] = state.get("validation_score", 0)
+                        payload["is_patch_valid"] = state.get("is_patch_valid", False)
+                        payload["validation_reasoning"] = state.get("validation_reasoning", "")
                     elif node_name == "test_agent":
                         payload["regression_tests"] = state.get("regression_tests", "")
+                    elif node_name == "test_execute_agent":
+                        payload["test_results"] = state.get("test_results", {})
+                        payload["tests_passed"] = state.get("tests_passed", False)
+                    elif node_name == "auto_rescan_agent":
+                        payload["rescan_passed"] = state.get("rescan_passed", False)
                     elif node_name == "github_agent":
                         pr_url = state.get("pr_url", "")
                         is_mock = _is_mock_pr(pr_url)
@@ -291,7 +303,13 @@ async def _run_swarm(job_id: str):
             "fix_summary": final_state.get("fix_summary", ""),
             "patched_code": final_state.get("patched_code", ""),
             "risk_assessment": final_state.get("risk_assessment", ""),
+            "validation_score": final_state.get("validation_score", 0),
+            "is_patch_valid": final_state.get("is_patch_valid", False),
+            "validation_reasoning": final_state.get("validation_reasoning", ""),
             "regression_tests": final_state.get("regression_tests", ""),
+            "test_results": final_state.get("test_results", {}),
+            "tests_passed": final_state.get("tests_passed", False),
+            "rescan_passed": final_state.get("rescan_passed", False),
             "pr_url": final_state.get("pr_url", ""),
             "pr_mode": "mock" if _is_mock_pr(final_state.get("pr_url", "")) else "live",
             "story_points": final_state.get("story_points", 0),

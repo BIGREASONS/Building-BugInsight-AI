@@ -118,6 +118,17 @@ try:
     else:
         print("[FAIL] Invalid or missing PR URL.")
 
+    print("\n--- Test 8: Validation Agent ---")
+    print(f"Validation Score: {final_state.get('validation_score')}")
+    print(f"Validation Approved: {final_state.get('is_patch_valid')}")
+    print(f"Reasoning: {final_state.get('validation_reasoning')}")
+
+    print("\n--- Test 9: Test Execute Agent ---")
+    print(f"Tests Passed: {final_state.get('tests_passed')}")
+
+    print("\n--- Test 10: Auto-Rescan Agent ---")
+    print(f"Rescan Passed (0 findings): {final_state.get('rescan_passed')}")
+
 except Exception as e:
     print(f"[FAIL] LangGraph workflow crashed: {e}")
 

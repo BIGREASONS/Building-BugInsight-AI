@@ -34,8 +34,20 @@ class SwarmState(TypedDict):
     fix_summary: str
     patched_code: str
     
+    # Validation (Agent 4.25)
+    validation_score: int
+    is_patch_valid: bool
+    validation_reasoning: str
+
     # Test Generation (Agent 4.5)
     regression_tests: str
+    
+    # Test Execution (Agent 4.75)
+    test_results: Dict[str, Any]
+    tests_passed: bool
+    
+    # Auto-Rescan (Agent 4.8)
+    rescan_passed: bool
     
     # Pull Request (Agent 5)
     pr_url: Optional[str]

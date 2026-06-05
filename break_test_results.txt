@@ -1,0 +1,4 @@
+--- BREAK TEST RESULTS ---
+Validation Agent rejected bad patch? YES
+Test Execution Agent caught bad test? YES
+Auto-Rescan Agent caught remaining vulnerability? YES

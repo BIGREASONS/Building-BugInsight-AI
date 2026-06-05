@@ -7,6 +7,9 @@ from swarm.agents import root_cause_agent, fix_agent, sprint_planning_agent, gen
 from swarm.github_agent import github_action_agent
 from swarm.scanner_agent import scanner_agent
 from swarm.test_agent import test_agent
+from swarm.validation_agent import validation_agent
+from swarm.test_execute_agent import test_execute_agent
+from swarm.auto_rescan_agent import auto_rescan_agent
 
 def repo_node(state: SwarmState) -> SwarmState:
     """Agent 1: Dynamically clones and indexes the repo, then retrieves context."""
@@ -89,7 +92,10 @@ workflow.add_node("scanner_agent", scanner_agent)
 workflow.add_node("severity_agent", severity_node)
 workflow.add_node("root_cause_agent", root_cause_agent)
 workflow.add_node("fix_agent", fix_agent)
+workflow.add_node("validation_agent", validation_agent)
 workflow.add_node("test_agent", test_agent)
+workflow.add_node("test_execute_agent", test_execute_agent)
+workflow.add_node("auto_rescan_agent", auto_rescan_agent)
 workflow.add_node("github_agent", github_action_agent)
 workflow.add_node("sprint_agent", sprint_planning_agent)
 
@@ -99,8 +105,11 @@ workflow.add_edge("repo_agent", "scanner_agent")
 workflow.add_edge("scanner_agent", "severity_agent")
 workflow.add_edge("severity_agent", "root_cause_agent")
 workflow.add_edge("root_cause_agent", "fix_agent")
-workflow.add_edge("fix_agent", "test_agent")
-workflow.add_edge("test_agent", "github_agent")
+workflow.add_edge("fix_agent", "validation_agent")
+workflow.add_edge("validation_agent", "test_agent")
+workflow.add_edge("test_agent", "test_execute_agent")
+workflow.add_edge("test_execute_agent", "auto_rescan_agent")
+workflow.add_edge("auto_rescan_agent", "github_agent")
 workflow.add_edge("github_agent", "sprint_agent")
 workflow.add_edge("sprint_agent", END)
 

@@ -50,6 +50,18 @@ interface SwarmResults {
   time_saved_hours: number;
   severity_reasoning: string[];
   regression_tests: string;
+  validation_score: number;
+  is_patch_valid: boolean;
+  validation_reasoning: string;
+  test_results: {
+    passed: number;
+    failed: number;
+    stdout: string;
+    stderr: string;
+    duration: number;
+  };
+  tests_passed: boolean;
+  rescan_passed: boolean;
 }
 
 const AGENT_ORDER = [
@@ -58,7 +70,10 @@ const AGENT_ORDER = [
   "Severity Agent",
   "Root Cause Agent",
   "Fix Agent",
+  "Validation Agent",
   "Test Agent",
+  "Test Execution Agent",
+  "Auto-Rescan Agent",
   "GitHub Agent",
   "Sprint Agent",
 ];
@@ -319,8 +334,14 @@ function DashboardContent() {
               ? "🎯 Locating vulnerable file..."
               : currentAgent === "Fix Agent"
               ? "🛠 Generating secure patch..."
+              : currentAgent === "Validation Agent"
+              ? "🛡️ Validating patch against findings..."
               : currentAgent === "Test Agent"
               ? "🧪 Writing regression tests..."
+              : currentAgent === "Test Execution Agent"
+              ? "⚡ Running regression tests..."
+              : currentAgent === "Auto-Rescan Agent"
+              ? "🔎 Verifying vulnerability removed..."
               : currentAgent === "Sprint Agent"
               ? "📋 Creating sprint plan..."
               : currentAgent
@@ -333,7 +354,7 @@ function DashboardContent() {
       <div className="flex-1 p-6 space-y-6 max-w-[1600px] mx-auto w-full">
         
         {/* ── TOP ROW: Executive Summary ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           
           {/* Repo Stats */}
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 flex flex-col justify-center">
@@ -428,9 +449,46 @@ function DashboardContent() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
-                {[...Array(4)].map((_, i) => <div key={i} className="h-12 rounded bg-zinc-800 animate-pulse" />)}
               </div>
+            )}
+          </div>
+          
+          {/* Patch Confidence */}
+          <div className={`rounded-2xl border ${results.validation_score !== undefined ? (results.is_patch_valid ? 'border-green-900 bg-green-950/20' : 'border-red-900 bg-red-950/20') : 'border-zinc-800 bg-zinc-900/50'} p-6 flex flex-col`}>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-blue-400 mb-6">
+              Patch Confidence
+            </h3>
+            {results.validation_score !== undefined ? (
+              <div className="flex flex-col h-full justify-between">
+                <div>
+                  <div className="flex items-end gap-2 mb-2">
+                    <div className={`text-4xl font-bold ${results.is_patch_valid ? 'text-green-400' : 'text-red-400'}`}>
+                      {results.validation_score}/100
+                    </div>
+                    <div className={`text-sm font-bold uppercase ${results.is_patch_valid ? 'text-green-500' : 'text-red-500'} pb-1`}>
+                      {results.is_patch_valid ? 'APPROVED' : 'REJECTED'}
+                    </div>
+                  </div>
+                  <p className="text-sm text-zinc-300 leading-relaxed mb-4">
+                    {results.validation_reasoning}
+                  </p>
+                </div>
+                {results.rescan_passed !== undefined && (
+                  <div className={`mt-auto pt-4 border-t ${results.is_patch_valid ? 'border-green-900/30' : 'border-red-900/30'}`}>
+                    <div className="flex items-center justify-between text-xs font-semibold uppercase">
+                      <span className="text-zinc-500">Auto-Rescan</span>
+                      <span className={results.rescan_passed ? 'text-green-400' : 'text-red-400'}>
+                        {results.rescan_passed ? 'FINDINGS REMOVED ✓' : 'VULNERABILITY REMAINS ✗'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+               <div className="space-y-4 w-full">
+                  <div className="h-10 w-1/2 rounded bg-zinc-800 animate-pulse" />
+                  <div className="h-16 w-full rounded bg-zinc-800 animate-pulse" />
+               </div>
             )}
           </div>
         </div>
@@ -556,6 +614,40 @@ function DashboardContent() {
             <div className="p-6">
               <pre className="text-sm text-indigo-300 bg-indigo-950/10 border border-indigo-900/30 p-4 rounded-xl overflow-x-auto whitespace-pre-wrap font-mono">
                 {results.regression_tests}
+              </pre>
+            </div>
+          </div>
+        )}
+
+        {/* ── TEST EXECUTION OUTPUT (Full Width) ── */}
+        {results.test_results && (
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-950 overflow-hidden shadow-xl">
+            <div className="bg-zinc-900/80 px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+                <span>⚡</span> Test Execution Output
+              </h3>
+              <div className="flex items-center gap-4">
+                <span className="text-xs text-zinc-500">
+                  Duration: {results.test_results.duration}s
+                </span>
+                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${results.tests_passed ? 'bg-green-950/50 text-green-400' : 'bg-red-950/50 text-red-400'}`}>
+                  {results.tests_passed ? 'PASSED' : 'FAILED'}
+                </span>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="flex gap-4 mb-4">
+                <div className="bg-green-950/20 border border-green-900/30 rounded px-3 py-1.5 flex items-center gap-2">
+                  <span className="text-green-500 font-bold">{results.test_results.passed}</span>
+                  <span className="text-xs text-zinc-400 uppercase">Passed</span>
+                </div>
+                <div className="bg-red-950/20 border border-red-900/30 rounded px-3 py-1.5 flex items-center gap-2">
+                  <span className="text-red-500 font-bold">{results.test_results.failed}</span>
+                  <span className="text-xs text-zinc-400 uppercase">Failed</span>
+                </div>
+              </div>
+              <pre className={`text-sm ${results.tests_passed ? 'text-zinc-300' : 'text-red-300'} bg-black p-4 rounded-xl overflow-x-auto whitespace-pre-wrap font-mono max-h-[400px] scrollbar-thin scrollbar-thumb-zinc-700`}>
+                {results.test_results.stdout || results.test_results.stderr}
               </pre>
             </div>
           </div>
