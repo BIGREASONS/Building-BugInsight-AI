@@ -24,8 +24,8 @@ def validation_agent(state: SwarmState) -> SwarmState:
     
     # 1. Functional Preservation Check (Heuristic Fast-Fail)
     if repo_url and affected_file:
-        original_code = fetch_original_file(repo_url, affected_file)
-        if original_code:
+        try:
+            original_code = fetch_original_file(repo_url, affected_file)
             is_valid, reason_or_warning = check_functional_preservation(original_code, patched_code, vulnerable_code)
             
             if not is_valid:
@@ -37,6 +37,15 @@ def validation_agent(state: SwarmState) -> SwarmState:
                     "log": "Patch rejected (Functional Preservation Failed)"
                 })
                 return state
+        except Exception as e:
+            state["validation_score"] = 0
+            state["is_patch_valid"] = False
+            state["validation_reasoning"] = f"Failed to fetch original file: {e}"
+            state["trace_logs"].append({
+                "agent": "Validation Agent", 
+                "log": f"Patch rejected (Fetch Failed: {e})"
+            })
+            return state
                 
             # If valid, we might still have warnings
             if reason_or_warning:

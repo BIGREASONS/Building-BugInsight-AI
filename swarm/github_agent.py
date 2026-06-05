@@ -102,14 +102,14 @@ Severity: **{severity.upper()}**
 
 ## Validation
 Score: **{state.get('validation_score', 0)}/100**
-Approved: **YES**
+Approved: **{"YES" if state.get('is_patch_valid') else "NO"}**
 
 ## Test Execution
-Tests Passed: **YES**
+Tests Passed: **{"YES" if state.get('tests_passed') else "NO"}**
 Duration: {state.get('test_results', {}).get('duration', 0)}s
 
 ## Auto Rescan
-Remaining Findings: **0**
+Rescan Passed: **{"YES" if state.get('rescan_passed') else "NO"}**
 
 ## Fix Summary
 {state.get('fix_summary', '')}

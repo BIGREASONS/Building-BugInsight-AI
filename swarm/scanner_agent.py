@@ -45,6 +45,8 @@ def scanner_agent(state: SwarmState) -> SwarmState:
         
         try:
             semgrep_result = subprocess.run(semgrep_cmd, capture_output=True, text=True)
+            if semgrep_result.returncode != 0 and semgrep_result.returncode != 1:
+                raise RuntimeError(f"Semgrep crashed: {semgrep_result.stderr}")
             if semgrep_result.stdout:
                 parsed_semgrep = json.loads(semgrep_result.stdout)
                 for finding in parsed_semgrep.get("results", []):
@@ -61,6 +63,7 @@ def scanner_agent(state: SwarmState) -> SwarmState:
                 "agent": "Scanner Agent", 
                 "log": f"Semgrep scan failed: {e}"
             })
+            raise RuntimeError(f"Scanner Agent failed: {e}")
 
         # Run Bandit (Python only)
         bandit_cmd = [

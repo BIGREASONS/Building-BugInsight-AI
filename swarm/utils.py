@@ -13,8 +13,10 @@ def fetch_original_file(repo_url: str, file_path: str) -> str:
         if os.path.exists(target_file_path):
             with open(target_file_path, "r", encoding="utf-8") as f:
                 return f.read()
-    except Exception:
-        pass
+        else:
+            raise FileNotFoundError(f"File {file_path} not found in repo {repo_url}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to fetch original file: {e}")
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
     return ""
