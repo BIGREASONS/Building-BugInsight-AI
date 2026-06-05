@@ -358,13 +358,9 @@ function DashboardContent() {
           {/* Hero Severity */}
           <div className={`rounded-2xl border p-8 flex flex-col items-center justify-center text-center transition-all duration-700 ${severity ? `${severityBg} ring-2 ${severityRing} shadow-[0_0_50px_-15px_rgba(239,68,68,0.3)]` : "bg-zinc-900 border-zinc-800"}`}>
             <div className="inline-flex flex-wrap justify-center items-center gap-2 mb-6">
-              <div className="inline-flex items-center gap-2 rounded-full bg-zinc-950/80 border border-zinc-800 px-3 py-1 text-xs shadow-sm">
-                <span className={`h-1.5 w-1.5 rounded-full ${severity ? severityColor.replace('text-', 'bg-') : 'bg-indigo-500'}`} />
-                <span className="text-zinc-300">Custom-Trained CodeBERT</span>
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-zinc-950/80 border border-zinc-800 px-3 py-1 text-xs shadow-sm">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                <span className="text-zinc-300">100% Local Inference</span>
+              <div className="inline-flex items-center gap-2 rounded-full bg-zinc-950/80 border border-zinc-800 px-4 py-1.5 text-xs shadow-sm">
+                <span className={`h-2 w-2 rounded-full ${severity ? severityColor.replace('text-', 'bg-') : 'bg-indigo-500'}`} />
+                <span className="text-zinc-300 uppercase tracking-widest font-bold">Severity Assessment</span>
               </div>
             </div>
             {severity ? (
