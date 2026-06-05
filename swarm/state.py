@@ -12,7 +12,8 @@ class SwarmState(TypedDict):
     
     # Code Context (Agent 1)
     repo_context: str
-    relevant_files: List[str]
+    # Scanner Findings (Agent 1.5)
+    scanner_findings: List[Dict[str, Any]]
     
     # Severity Prediction (Agent 2 - CodeBERT)
     severity: str
@@ -32,6 +33,9 @@ class SwarmState(TypedDict):
     risk_assessment: str
     fix_summary: str
     patched_code: str
+    
+    # Test Generation (Agent 4.5)
+    regression_tests: str
     
     # Pull Request (Agent 5)
     pr_url: Optional[str]

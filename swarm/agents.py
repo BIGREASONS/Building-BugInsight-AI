@@ -72,6 +72,7 @@ def root_cause_agent(state: SwarmState) -> SwarmState:
             "You are a staff software engineer performing a production incident review.\n"
             "Issue: {issue}\n"
             "Severity: {severity}\n"
+            "Scanner Findings (Semgrep/Bandit):\n{scanner_findings}\n"
             "Code Context:\n{repo_context}\n\n"
             "Return:\n"
             "1. Exact affected file\n"
@@ -83,7 +84,7 @@ def root_cause_agent(state: SwarmState) -> SwarmState:
             "Always quote the actual code responsible.\n\n"
             "{format_instructions}"
         ),
-        input_variables=["issue", "severity", "repo_context"],
+        input_variables=["issue", "severity", "scanner_findings", "repo_context"],
         partial_variables={"format_instructions": parser.get_format_instructions()}
     )
     
@@ -93,6 +94,7 @@ def root_cause_agent(state: SwarmState) -> SwarmState:
         response: RootCauseOutput = chain.invoke({
             "issue": state.get("issue_text", ""),
             "severity": state.get("severity", "Unknown"),
+            "scanner_findings": str(state.get("scanner_findings", [])),
             "repo_context": state.get("repo_context", "")
         })
         

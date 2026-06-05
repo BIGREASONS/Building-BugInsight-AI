@@ -5,6 +5,8 @@ from swarm.state import SwarmState
 from swarm.repo_agent import clone_and_index_repo, retrieve_context
 from swarm.agents import root_cause_agent, fix_agent, sprint_planning_agent, generate_severity_reasoning
 from swarm.github_agent import github_action_agent
+from swarm.scanner_agent import scanner_agent
+from swarm.test_agent import test_agent
 
 def repo_node(state: SwarmState) -> SwarmState:
     """Agent 1: Dynamically clones and indexes the repo, then retrieves context."""
@@ -55,6 +57,16 @@ def severity_node(state: SwarmState) -> SwarmState:
         state["severity"] = "Critical (Fallback)"
         state["confidence"] = 0.99
         
+    # Override severity if scanner found critical/high issues
+    scanner_findings = state.get("scanner_findings", [])
+    has_high_severity = any(
+        f.get("severity", "").upper() in ["ERROR", "HIGH", "CRITICAL"] 
+        for f in scanner_findings
+    )
+    if has_high_severity:
+        state["severity"] = "Critical"
+        state["confidence"] = max(state.get("confidence", 0.0), 0.92)
+        
     # Generate 3 bullets explaining the severity
     if state["severity"] and state["severity"] not in ["Unknown", "Error"]:
         state["severity_reasoning"] = generate_severity_reasoning(issue_text, state["severity"])
@@ -73,18 +85,22 @@ workflow = StateGraph(SwarmState)
 
 # Add nodes
 workflow.add_node("repo_agent", repo_node)
+workflow.add_node("scanner_agent", scanner_agent)
 workflow.add_node("severity_agent", severity_node)
 workflow.add_node("root_cause_agent", root_cause_agent)
 workflow.add_node("fix_agent", fix_agent)
+workflow.add_node("test_agent", test_agent)
 workflow.add_node("github_agent", github_action_agent)
 workflow.add_node("sprint_agent", sprint_planning_agent)
 
 # Define edges
 workflow.set_entry_point("repo_agent")
-workflow.add_edge("repo_agent", "severity_agent")
+workflow.add_edge("repo_agent", "scanner_agent")
+workflow.add_edge("scanner_agent", "severity_agent")
 workflow.add_edge("severity_agent", "root_cause_agent")
 workflow.add_edge("root_cause_agent", "fix_agent")
-workflow.add_edge("fix_agent", "github_agent")
+workflow.add_edge("fix_agent", "test_agent")
+workflow.add_edge("test_agent", "github_agent")
 workflow.add_edge("github_agent", "sprint_agent")
 workflow.add_edge("sprint_agent", END)
 

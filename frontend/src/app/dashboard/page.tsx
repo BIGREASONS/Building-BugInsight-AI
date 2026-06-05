@@ -22,6 +22,14 @@ interface SwarmResults {
     size_mb: number;
     indexed_at?: number;
   };
+  scanner_findings?: Array<{
+    tool: string;
+    rule: string;
+    severity: string;
+    file: string;
+    line: number;
+    description: string;
+  }>;
   severity: string;
   confidence: number;
   root_cause: string;
@@ -41,13 +49,16 @@ interface SwarmResults {
   sprint_recommendation: string;
   time_saved_hours: number;
   severity_reasoning: string[];
+  regression_tests: string;
 }
 
 const AGENT_ORDER = [
   "Repository Agent",
+  "Scanner Agent",
   "Severity Agent",
   "Root Cause Agent",
   "Fix Agent",
+  "Test Agent",
   "GitHub Agent",
   "Sprint Agent",
 ];
@@ -300,12 +311,16 @@ function DashboardContent() {
               ? "All agents completed successfully."
               : currentAgent === "Repository Agent"
               ? "🔍 Indexing repository..."
+              : currentAgent === "Scanner Agent"
+              ? "🔎 Running static analysis..."
               : currentAgent === "Severity Agent"
               ? "🧠 Running CodeBERT analysis..."
               : currentAgent === "Root Cause Agent"
               ? "🎯 Locating vulnerable file..."
               : currentAgent === "Fix Agent"
               ? "🛠 Generating secure patch..."
+              : currentAgent === "Test Agent"
+              ? "🧪 Writing regression tests..."
               : currentAgent === "Sprint Agent"
               ? "📋 Creating sprint plan..."
               : currentAgent
@@ -420,6 +435,43 @@ function DashboardContent() {
           </div>
         </div>
 
+        {/* ── NEW ROW: Scanner Findings ── */}
+        {results.scanner_findings && results.scanner_findings.length > 0 && (
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 shadow-sm">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-4 flex items-center gap-2">
+              <span className="text-indigo-500">🔎</span> Static Scanner Findings
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-xs text-zinc-500 uppercase bg-zinc-950">
+                  <tr>
+                    <th className="px-4 py-3 rounded-l-lg font-semibold tracking-wider">Tool</th>
+                    <th className="px-4 py-3 font-semibold tracking-wider">Rule</th>
+                    <th className="px-4 py-3 font-semibold tracking-wider">Severity</th>
+                    <th className="px-4 py-3 font-semibold tracking-wider">File:Line</th>
+                    <th className="px-4 py-3 rounded-r-lg font-semibold tracking-wider">Description</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/50">
+                  {results.scanner_findings.map((f, i) => (
+                    <tr key={i} className="hover:bg-zinc-800/20 transition-colors">
+                      <td className="px-4 py-3 font-mono text-zinc-300">{f.tool}</td>
+                      <td className="px-4 py-3 text-zinc-400">{f.rule}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-wider uppercase border ${f.severity?.toUpperCase() === 'ERROR' || f.severity?.toUpperCase() === 'HIGH' ? 'bg-red-950/50 text-red-400 border-red-900/50' : 'bg-yellow-950/50 text-yellow-400 border-yellow-900/50'}`}>
+                          {f.severity}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-zinc-400">{f.file}:{f.line}</td>
+                      <td className="px-4 py-3 text-zinc-300 max-w-xl truncate" title={f.description}>{f.description}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* ── MIDDLE ROW: Context & Code ── */}
         {results.root_cause && (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -489,6 +541,22 @@ function DashboardContent() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── REGRESSION TESTS (Full Width) ── */}
+        {results.regression_tests && (
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-950 overflow-hidden shadow-xl">
+            <div className="bg-zinc-900/80 px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+                <span>🧪</span> Regression Tests Generated
+              </h3>
+            </div>
+            <div className="p-6">
+              <pre className="text-sm text-indigo-300 bg-indigo-950/10 border border-indigo-900/30 p-4 rounded-xl overflow-x-auto whitespace-pre-wrap font-mono">
+                {results.regression_tests}
+              </pre>
             </div>
           </div>
         )}

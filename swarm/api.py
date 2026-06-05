@@ -214,9 +214,11 @@ async def _run_swarm(job_id: str):
         # Map internal node names to user-friendly display names
         AGENT_NAMES = {
             "repo_agent": "Repository Agent",
+            "scanner_agent": "Scanner Agent",
             "severity_agent": "Severity Agent",
             "root_cause_agent": "Root Cause Agent",
             "fix_agent": "Fix Agent",
+            "test_agent": "Test Agent",
             "github_agent": "GitHub Agent",
             "sprint_agent": "Sprint Agent",
         }
@@ -237,6 +239,8 @@ async def _run_swarm(job_id: str):
                     
                     if node_name == "repo_agent":
                         payload["index_stats"] = state.get("index_stats", {})
+                    elif node_name == "scanner_agent":
+                        payload["scanner_findings"] = state.get("scanner_findings", [])
                     elif node_name == "severity_agent":
                         payload["severity"] = state.get("severity", "Unknown")
                         payload["confidence"] = state.get("confidence", 0.0)
@@ -253,6 +257,8 @@ async def _run_swarm(job_id: str):
                         payload["fix_summary"] = state.get("fix_summary", "")
                         payload["patched_code"] = state.get("patched_code", "")
                         payload["risk_assessment"] = state.get("risk_assessment", "")
+                    elif node_name == "test_agent":
+                        payload["regression_tests"] = state.get("regression_tests", "")
                     elif node_name == "github_agent":
                         pr_url = state.get("pr_url", "")
                         is_mock = _is_mock_pr(pr_url)
@@ -274,6 +280,7 @@ async def _run_swarm(job_id: str):
             "severity": final_state.get("severity", ""),
             "confidence": final_state.get("confidence", 0.0),
             "severity_reasoning": final_state.get("severity_reasoning", []),
+            "scanner_findings": final_state.get("scanner_findings", []),
             "root_cause": final_state.get("root_cause", ""),
             "affected_file": final_state.get("affected_file", ""),
             "vulnerable_code": final_state.get("vulnerable_code", ""),
@@ -284,6 +291,7 @@ async def _run_swarm(job_id: str):
             "fix_summary": final_state.get("fix_summary", ""),
             "patched_code": final_state.get("patched_code", ""),
             "risk_assessment": final_state.get("risk_assessment", ""),
+            "regression_tests": final_state.get("regression_tests", ""),
             "pr_url": final_state.get("pr_url", ""),
             "pr_mode": "mock" if _is_mock_pr(final_state.get("pr_url", "")) else "live",
             "story_points": final_state.get("story_points", 0),
