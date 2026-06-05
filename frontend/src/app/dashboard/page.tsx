@@ -456,6 +456,8 @@ function DashboardContent() {
                 </div>
               </div>
             ) : (
+              <div className="flex items-center justify-center h-full text-zinc-500 italic text-sm">
+                No PR generated yet
               </div>
             )}
           </div>

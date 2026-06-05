@@ -6,9 +6,9 @@ from swarm.repo_agent import clone_and_index_repo, retrieve_context
 from swarm.agents import root_cause_agent, fix_agent, sprint_planning_agent, generate_severity_reasoning
 from swarm.github_agent import github_action_agent
 from swarm.scanner_agent import scanner_agent
-from swarm.test_agent import test_agent
+from swarm.test_agent import generate_tests_agent
 from swarm.validation_agent import validation_agent
-from swarm.test_execute_agent import test_execute_agent
+from swarm.test_execute_agent import execute_tests_agent
 from swarm.auto_rescan_agent import auto_rescan_agent
 
 def repo_node(state: SwarmState) -> SwarmState:
@@ -93,8 +93,8 @@ workflow.add_node("severity_agent", severity_node)
 workflow.add_node("root_cause_agent", root_cause_agent)
 workflow.add_node("fix_agent", fix_agent)
 workflow.add_node("validation_agent", validation_agent)
-workflow.add_node("test_agent", test_agent)
-workflow.add_node("test_execute_agent", test_execute_agent)
+workflow.add_node("test_agent", generate_tests_agent)
+workflow.add_node("test_execute_agent", execute_tests_agent)
 workflow.add_node("auto_rescan_agent", auto_rescan_agent)
 workflow.add_node("github_agent", github_action_agent)
 workflow.add_node("sprint_agent", sprint_planning_agent)

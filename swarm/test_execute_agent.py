@@ -7,7 +7,7 @@ import re
 from typing import Dict, Any
 from swarm.state import SwarmState
 
-def test_execute_agent(state: SwarmState) -> SwarmState:
+def execute_tests_agent(state: SwarmState) -> SwarmState:
     """Agent 4.75: Executes the generated regression tests against the patched code."""
     state["current_agent"] = "Test Execution Agent"
     
@@ -68,7 +68,6 @@ def test_execute_agent(state: SwarmState) -> SwarmState:
         }
         state["tests_passed"] = False
     finally:
-        state["tests_passed"] = True # FORCED FOR DEMO
         shutil.rmtree(temp_dir, ignore_errors=True)
         
     state["trace_logs"].append({

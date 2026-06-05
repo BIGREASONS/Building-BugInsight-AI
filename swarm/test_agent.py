@@ -4,14 +4,14 @@ from pydantic import BaseModel, Field
 from swarm.state import SwarmState
 from swarm.agents import primary_llm, fallback_llm
 
-class TestAgentOutput(BaseModel):
+class GenerateTestsOutput(BaseModel):
     regression_tests: str = Field(description="The complete regression test code to verify the fix.")
 
-def test_agent(state: SwarmState) -> SwarmState:
+def generate_tests_agent(state: SwarmState) -> SwarmState:
     """Agent 4.5: Generates regression tests for the generated fix."""
     state["current_agent"] = "Test Agent"
     
-    parser = JsonOutputParser(pydantic_object=TestAgentOutput)
+    parser = JsonOutputParser(pydantic_object=GenerateTestsOutput)
     
     prompt = PromptTemplate(
         template=(

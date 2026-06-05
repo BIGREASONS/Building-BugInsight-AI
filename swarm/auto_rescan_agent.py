@@ -28,6 +28,13 @@ def auto_rescan_agent(state: SwarmState) -> SwarmState:
         if os.path.exists(target_file_path):
             with open(target_file_path, "w", encoding="utf-8") as f:
                 f.write(patched_code)
+        else:
+            state["rescan_passed"] = False
+            state["trace_logs"].append({
+                "agent": "Auto-Rescan Agent", 
+                "log": "Target file missing during rescan."
+            })
+            return state
                 
         # Run Semgrep
         semgrep_cmd = [
