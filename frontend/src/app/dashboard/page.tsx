@@ -265,6 +265,13 @@ function DashboardContent() {
           <span className="text-xs text-zinc-500 font-mono bg-zinc-900 px-2 py-0.5 rounded">
             Session: {jobId}
           </span>
+          <div className={`ml-4 px-3 py-1 text-xs font-bold uppercase tracking-widest rounded-full border ${
+            effectivePrMode === "live" 
+              ? "bg-red-500/10 text-red-400 border-red-500/30" 
+              : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+          }`}>
+            {effectivePrMode === "live" ? "Live GitHub Mode" : "Safe Demo Mode"}
+          </div>
         </div>
         <div className="flex items-center gap-4 text-sm text-zinc-400">
           <span className="font-mono tabular-nums">{elapsed}s</span>

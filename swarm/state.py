@@ -33,6 +33,7 @@ class SwarmState(TypedDict):
     risk_assessment: str
     fix_summary: str
     patched_code: str
+    files_modified: List[Dict[str, str]]
     
     # Validation (Agent 4.25)
     validation_score: int

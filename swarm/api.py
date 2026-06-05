@@ -273,9 +273,8 @@ async def _run_swarm(job_id: str):
                         payload["rescan_passed"] = state.get("rescan_passed", False)
                     elif node_name == "github_agent":
                         pr_url = state.get("pr_url", "")
-                        is_mock = _is_mock_pr(pr_url)
                         payload["pr_url"] = pr_url
-                        payload["pr_mode"] = "mock" if is_mock else "live"
+                        payload["pr_mode"] = state.get("pr_mode", "mock")
                     elif node_name == "sprint_agent":
                         payload["story_points"] = state.get("story_points", 0)
                         payload["priority"] = state.get("priority", "")

@@ -158,11 +158,19 @@ def fix_agent(state: SwarmState) -> SwarmState:
             state["fix_summary"] = response.fix_summary
             state["patched_code"] = response.patched_code
             
+        state["files_modified"] = [
+            {
+                "file": state.get("affected_file", ""),
+                "content": state["patched_code"]
+            }
+        ]
+            
         if len(state["patch"]) > 5000:
             state["patch"] = state["patch"][:5000] + "\n... [PATCH TRUNCATED FOR DISPLAY]"
             
     except Exception as e:
         state["patch"] = f"Failed to generate patch: {str(e)}"
+        state["files_modified"] = []
         
     state["trace_logs"].append({"agent": "Fix Recommendation Agent", "log": "Patch generated."})
     return state
