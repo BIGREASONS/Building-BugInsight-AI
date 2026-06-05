@@ -62,9 +62,10 @@ def github_action_agent(state: SwarmState) -> SwarmState:
             if not file_path or not content:
                 continue
                 
-            # Guard against partial snippets
-            if len(content.splitlines()) < 20:
-                raise ValueError(f"Refusing to overwrite {file_path} with a snippet (<20 lines).")
+            # Normalize path for GitHub API (replace Windows backslashes)
+            file_path = file_path.replace("\\", "/")
+                
+            # We now rely on ValidationAgent's Functional Preservation checks.
                 
             # Get current file SHA
             try:
