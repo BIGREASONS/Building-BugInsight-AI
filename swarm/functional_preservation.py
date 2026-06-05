@@ -69,13 +69,25 @@ def check_functional_preservation(original_code: str, patched_code: str, vulnera
         msg += "\n\nThis patch cannot be safely applied."
         return False, msg
         
-    # 5. Import Analysis (Warning only, we don't reject but we can prepend to reason)
+    # 5. Diff Size Check
+    if original_code:
+        from swarm.utils import generate_unified_diff
+        diff_str = generate_unified_diff(original_code, patched_code, "file.py")
+        diff_lines = diff_str.splitlines()
+        added = sum(1 for line in diff_lines if line.startswith('+') and not line.startswith('+++'))
+        removed = sum(1 for line in diff_lines if line.startswith('-') and not line.startswith('---'))
+        total_changed = added + removed
+        
+        if total_changed > 30:
+            return False, f"REJECTED\n\nFunctional Preservation Failed: Patch is too large for a simple vulnerability.\nExpected a minor fix, but changed {total_changed} lines (+{added}/-{removed}). This usually indicates the AI completely rewrote the file logic instead of fixing the specific bug."
+            
+    # 6. Import Analysis (Warning only, we don't reject but we can prepend to reason)
     new_imports = patch_meta["imports"] - orig_meta["imports"]
     warning_msg = ""
     if len(new_imports) > 3:
         warning_msg = f"Validation Warning: Patch introduces {len(new_imports)} new dependencies ({', '.join(new_imports)}).\n\n"
         
-    # 6. Line-Level Vulnerability Check
+    # 7. Line-Level Vulnerability Check
     if vulnerable_code and len(vulnerable_code.strip()) > 10:
         # Strip all whitespace for a robust comparison
         vuln_stripped = "".join(vulnerable_code.split())

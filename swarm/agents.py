@@ -5,6 +5,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel, Field
 from typing import List
 from swarm.state import SwarmState
+from swarm.utils import fetch_original_file, generate_unified_diff
 
 # Initialize Local LLMs via Ollama
 primary_llm = ChatOllama(model="qwen2.5-coder:3b", temperature=0.0, format="json")
@@ -22,8 +23,8 @@ class RootCauseOutput(BaseModel):
 
 class FixOutput(BaseModel):
     fix_summary: str = Field(description="A brief summary of the fix.")
-    patched_code: str = Field(description="The exact snippet of the fixed code.")
-    patch_diff: str = Field(description="A valid unified Git diff that can be applied directly to the repository.")
+    file_path: str = Field(description="The file path being modified.")
+    full_file_content: str = Field(description="The COMPLETE modified file, preserving all original code except the fix.")
 
 class SprintPlanningOutput(BaseModel):
     story_points: int = Field(description="Estimated engineering effort in Story Points (1, 2, 3, 5, 8).")
@@ -125,19 +126,31 @@ def fix_agent(state: SwarmState) -> SwarmState:
     """Agent 4: Generates a code patch to fix the bug."""
     state["current_agent"] = "Fix Recommendation Agent"
     
+    repo_url = state.get("repo_url", "")
+    affected_file = state.get("affected_file", "")
+    
+    # Load the ENTIRE file into context
+    original_file_content = ""
+    if repo_url and affected_file:
+        original_file_content = fetch_original_file(repo_url, affected_file)
+        
+    state["original_file_content"] = original_file_content
+    
     parser = JsonOutputParser(pydantic_object=FixOutput)
     
     prompt = PromptTemplate(
         template=(
             "You are an elite Principal Software Engineer.\n"
-            "Root Cause Analysis: {root_cause}\n"
-            "Relevant Code Context:\n{repo_context}\n\n"
+            "Root Cause Analysis: {root_cause}\n\n"
+            "File Path: {affected_file}\n"
+            "Vulnerable Snippet:\n{vulnerable_code}\n\n"
+            "Full File Context:\n{full_file_context}\n\n"
             "Generate a precise, production-ready code fix for this issue.\n"
             "CRITICAL: If fixing SQL injection, ALWAYS use parameterized queries (e.g., cursor.execute('... ?', (val,))) instead of simple type checking.\n"
-            "You must output a valid unified Git diff that can be applied directly to the repository.\n\n"
+            "CRITICAL: Return the COMPLETE modified file in `full_file_content`. Do not omit unchanged code. Preserve all existing functions and classes.\n\n"
             "{format_instructions}"
         ),
-        input_variables=["root_cause", "repo_context"],
+        input_variables=["root_cause", "affected_file", "vulnerable_code", "full_file_context"],
         partial_variables={"format_instructions": parser.get_format_instructions()}
     )
     
@@ -146,22 +159,29 @@ def fix_agent(state: SwarmState) -> SwarmState:
     try:
         response = chain.invoke({
             "root_cause": state.get("root_cause", ""),
-            "repo_context": state.get("repo_context", "")
+            "affected_file": affected_file,
+            "vulnerable_code": state.get("vulnerable_code", ""),
+            "full_file_context": original_file_content or state.get("repo_context", "")
         })
         
         if isinstance(response, dict):
-            state["patch"] = response.get("patch_diff", "")
-            state["fix_summary"] = response.get("fix_summary", "")
-            state["patched_code"] = response.get("patched_code", "")
+            patched_code = response.get("full_file_content", "")
+            fix_summary = response.get("fix_summary", "")
         else:
-            state["patch"] = response.patch_diff
-            state["fix_summary"] = response.fix_summary
-            state["patched_code"] = response.patched_code
+            patched_code = response.full_file_content
+            fix_summary = response.fix_summary
+            
+        state["fix_summary"] = fix_summary
+        state["patched_code"] = patched_code
+        
+        # Programmatically generate unified diff
+        diff_str = generate_unified_diff(original_file_content, patched_code, affected_file)
+        state["patch"] = diff_str
             
         state["files_modified"] = [
             {
-                "file": state.get("affected_file", ""),
-                "content": state["patched_code"]
+                "file": affected_file,
+                "content": patched_code
             }
         ]
             

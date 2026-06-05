@@ -4,30 +4,14 @@ from pydantic import BaseModel, Field
 from swarm.state import SwarmState
 from swarm.agents import primary_llm, fallback_llm
 from swarm.functional_preservation import check_functional_preservation
+from swarm.utils import fetch_original_file
 import json
-import tempfile
-import subprocess
-import shutil
 import os
 
 class ValidationAgentOutput(BaseModel):
     score: int = Field(description="A confidence score between 0 and 100 indicating how well the patch addresses the finding.")
     approved: bool = Field(description="True if the patch safely addresses the root cause, False otherwise.")
     reasoning: str = Field(description="A concise explanation of why the patch was approved or rejected.")
-
-def fetch_original_file(repo_url: str, file_path: str) -> str:
-    temp_dir = tempfile.mkdtemp(prefix="buginsight_val_")
-    try:
-        subprocess.run(["git", "clone", "--depth", "1", repo_url, temp_dir], capture_output=True, text=True, check=True)
-        target_file_path = os.path.join(temp_dir, file_path)
-        if os.path.exists(target_file_path):
-            with open(target_file_path, "r", encoding="utf-8") as f:
-                return f.read()
-    except Exception:
-        pass
-    finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
-    return ""
 
 def validation_agent(state: SwarmState) -> SwarmState:
     """Agent 4.25: Validates if the generated patch actually addresses the scanner findings."""
