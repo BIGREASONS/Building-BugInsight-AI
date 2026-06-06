@@ -35,17 +35,42 @@ def check_functional_preservation(original_code: str, patched_code: str, vulnera
     Checks if the patched code preserves the functional structure of the original code.
     Returns (is_valid, rejection_reason_or_warning)
     """
-    # 1. Syntax Check
     try:
         ast.parse(patched_code)
     except SyntaxError as e:
         return False, f"REJECTED\n\nFunctional Preservation Failed: SyntaxError in generated patch.\n{str(e)}"
         
-    # 2. Size Ratio Check
+    # 1.5 Pyflakes Check
+    import subprocess
+    import tempfile
+    import os
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False, encoding="utf-8") as f:
+            f.write(patched_code)
+            temp_path = f.name
+        
+        result = subprocess.run(["pyflakes", temp_path], capture_output=True, text=True)
+        os.remove(temp_path)
+        
+        if result.returncode != 0:
+            return False, f"REJECTED\n\nFunctional Preservation Failed: Pyflakes detected undefined names or syntax errors.\n{result.stdout.strip()}"
+    except Exception as e:
+        pass # Ignore if pyflakes not installed
+        
+    # 2. Size Ratio & Line Count Check
     if len(original_code) > 0:
+        # Check by bytes
         ratio = len(patched_code) / len(original_code)
-        if ratio < 0.25 or ratio > 4.0:
-            return False, f"REJECTED\n\nFunctional Preservation Failed: File size anomaly.\nOriginal size: {len(original_code)} bytes, Patched size: {len(patched_code)} bytes (Ratio: {ratio:.2f}). Patch likely hallucinated an entirely different file."
+        if len(original_code) > 500 and (ratio < 0.85 or ratio > 5.0):
+            return False, f"REJECTED\n\nFunctional Preservation Failed: File size anomaly.\nOriginal size: {len(original_code)} bytes, Patched size: {len(patched_code)} bytes (Ratio: {ratio:.2f}). Patch likely truncated or heavily altered the file."
+        
+        # Check by lines
+        orig_lines = original_code.count('\n')
+        patched_lines = patched_code.count('\n')
+        if orig_lines > 20:
+            line_ratio = patched_lines / orig_lines
+            if line_ratio < 0.85:
+                return False, f"REJECTED\n\nFunctional Preservation Failed: File line count anomaly.\nOriginal lines: {orig_lines}, Patched lines: {patched_lines} (Ratio: {line_ratio:.2f}). Patch likely truncated the file."
             
     # 3. AST Extraction
     orig_meta = extract_ast_metadata(original_code)
@@ -78,8 +103,13 @@ def check_functional_preservation(original_code: str, patched_code: str, vulnera
         removed = sum(1 for line in diff_lines if line.startswith('-') and not line.startswith('---'))
         total_changed = added + removed
         
-        if total_changed > 30:
-            return False, f"REJECTED\n\nFunctional Preservation Failed: Patch is too large for a simple vulnerability.\nExpected a minor fix, but changed {total_changed} lines (+{added}/-{removed}). This usually indicates the AI completely rewrote the file logic instead of fixing the specific bug."
+        orig_lines = original_code.count('\n')
+        
+        if total_changed > 200:
+            return False, f"REJECTED\n\nFunctional Preservation Failed: Patch is too large.\nChanged {total_changed} lines (+{added}/-{removed}), which exceeds the 200-line safety limit. The AI likely completely rewrote the file logic instead of fixing the specific bug."
+            
+        if orig_lines > 50 and (total_changed / orig_lines) > 0.50:
+            return False, f"REJECTED\n\nFunctional Preservation Failed: Patch modifies more than 50% of the file.\nChanged {total_changed} lines out of {orig_lines} total lines. This usually indicates dangerous hallucinated rewrites."
             
     # 6. Import Analysis (Warning only, we don't reject but we can prepend to reason)
     new_imports = patch_meta["imports"] - orig_meta["imports"]

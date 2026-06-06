@@ -1,0 +1,23 @@
+name: BugInsight Swarm Analysis
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR to analyze"
+        required: true
+
+jobs:
+  analyze-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger BugInsight Swarm Server
+        run: |
+          curl -s -X POST "${{ secrets.BUGINSIGHT_SERVER_URL }}/api/v1/analyze_pr" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer ${{ secrets.BUGINSIGHT_WEBHOOK_SECRET }}" \
+          -d '{
+            "repo_url": "https://github.com/${{ github.repository }}",
+            "pr_number": ${{ github.event.inputs.pr_number }},
+            "branch": ""
+          }'

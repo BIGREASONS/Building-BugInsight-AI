@@ -4,6 +4,7 @@ import asyncio
 import json
 import time
 import logging
+import secrets
 from typing import Dict, Any
 from pathlib import Path
 
@@ -46,8 +47,17 @@ class SwarmRequest(BaseModel):
     repo_url: str
     issue_text: str
 
+from typing import Optional
+
+class AnalyzePRRequest(BaseModel):
+    repo_url: str
+    pr_number: int
+    branch: str = ""
+    target_file: Optional[str] = None
+
 class JobResponse(BaseModel):
     job_id: str
+    status: str = "queued"
 
 class SeverityResponse(BaseModel):
     severity: str
@@ -157,6 +167,46 @@ async def start_swarm(request: SwarmRequest):
     return JobResponse(job_id=job_id)
 
 
+from fastapi import Header
+
+@app.post("/api/v1/analyze_pr", response_model=JobResponse)
+async def analyze_pr(request: AnalyzePRRequest, authorization: str = Header(None)):
+    """Triggered by GitHub Action to analyze a specific PR."""
+    expected_secret = os.environ.get("BUGINSIGHT_WEBHOOK_SECRET")
+    if not expected_secret:
+        raise HTTPException(status_code=500, detail="Server not configured with BUGINSIGHT_WEBHOOK_SECRET.")
+        
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header.")
+        
+    token = authorization.split("Bearer ")[1].strip()
+    if not secrets.compare_digest(token, expected_secret):
+        raise HTTPException(status_code=403, detail="Unauthorized: Invalid webhook secret.")
+        
+    if not request.pr_number:
+        raise HTTPException(status_code=400, detail="pr_number is required.")
+
+    job_id = uuid.uuid4().hex[:12]
+
+    issue_text = f"Analyze PR #{request.pr_number}"
+    if request.target_file:
+        issue_text += f" for file {request.target_file}"
+
+    jobs[job_id] = {
+        "status": "queued",
+        "repo_url": request.repo_url,
+        "issue_text": issue_text,
+        "pr_number": request.pr_number,
+        "target_file": request.target_file,
+        "events": [],
+        "final_state": None,
+        "done": False,
+    }
+
+    asyncio.create_task(_run_swarm(job_id))
+    return JobResponse(job_id=job_id)
+
+
 @app.get("/api/swarm/stream/{job_id}")
 async def stream_swarm(job_id: str):
     """SSE endpoint — streams agent progress events to the frontend."""
@@ -207,8 +257,16 @@ async def _run_swarm(job_id: str):
             "job_id": job_id,
             "issue_url": None,
             "repo_url": job["repo_url"],
+            "pr_number": job.get("pr_number"),
             "issue_text": job["issue_text"],
+            "target_file": job.get("target_file"),
             "trace_logs": [],
+            "raw_fix_output": "",
+            "generated_patch_lines": 0,
+            "original_lines": 0,
+            "first_failed_gate": None,
+            "failure_category": None,
+            "failure_reason": None,
         }
 
         # Map internal node names to user-friendly display names
@@ -275,6 +333,8 @@ async def _run_swarm(job_id: str):
                         pr_url = state.get("pr_url", "")
                         payload["pr_url"] = pr_url
                         payload["pr_mode"] = state.get("pr_mode", "mock")
+                        if "github_error" in state:
+                            payload["github_error"] = state.get("github_error")
                     elif node_name == "sprint_agent":
                         payload["story_points"] = state.get("story_points", 0)
                         payload["priority"] = state.get("priority", "")
@@ -305,6 +365,7 @@ async def _run_swarm(job_id: str):
             "validation_score": final_state.get("validation_score", 0),
             "is_patch_valid": final_state.get("is_patch_valid", False),
             "validation_reasoning": final_state.get("validation_reasoning", ""),
+            "github_error": final_state.get("github_error", ""),
             "regression_tests": final_state.get("regression_tests", ""),
             "test_results": final_state.get("test_results", {}),
             "tests_passed": final_state.get("tests_passed", False),
@@ -314,6 +375,14 @@ async def _run_swarm(job_id: str):
             "story_points": final_state.get("story_points", 0),
             "priority": final_state.get("priority", ""),
             "sprint_recommendation": final_state.get("sprint_recommendation", ""),
+            "raw_fix_output": final_state.get("raw_fix_output", ""),
+            "generated_patch_lines": final_state.get("generated_patch_lines", 0),
+            "original_lines": final_state.get("original_lines", 0),
+            "first_failed_gate": final_state.get("first_failed_gate"),
+            "failure_category": final_state.get("failure_category"),
+            "failure_reason": final_state.get("failure_reason"),
+            "repair_attempts": final_state.get("repair_attempts", 0),
+            "repaired_successfully": final_state.get("repaired_successfully", False),
         })
 
         job["final_state"] = final_state

@@ -1,0 +1,34 @@
+{
+  "sql_injection": {
+    "keywords": ["sql", "injection", "sqli", "execute"],
+    "rule": "Use parameterized queries or prepared statements. NEVER use string formatting (e.g., f-strings, %s, .format()) to construct SQL queries with user input."
+  },
+  "command_injection": {
+    "keywords": ["command", "injection", "subprocess", "os.system", "popen"],
+    "rule": "Use subprocess.run() or subprocess.Popen() with a list of arguments and shell=False. Never pass unsanitized user input to a shell command."
+  },
+  "path_traversal": {
+    "keywords": ["path", "traversal", "directory", "lfi", "file read"],
+    "rule": "Sanitize file paths using os.path.basename() or secure path resolution (e.g., resolving absolute paths and checking if they start with the expected base directory)."
+  },
+  "xss": {
+    "keywords": ["xss", "cross-site scripting", "cross site", "html injection"],
+    "rule": "Escape HTML content before rendering it. Use contextual output encoding (e.g., html.escape() in Python or a template engine with auto-escaping)."
+  },
+  "insecure_deserialization": {
+    "keywords": ["deserialization", "pickle", "yaml", "load"],
+    "rule": "Use safe serialization formats like JSON. If using YAML, use yaml.safe_load() instead of yaml.load(). Never use pickle with untrusted data."
+  },
+  "hardcoded_secrets": {
+    "keywords": ["hardcoded", "secret", "password", "token", "key"],
+    "rule": "Load secrets from environment variables (os.getenv) or a secure secrets manager. Do not hardcode credentials in the source code."
+  },
+  "ssrf": {
+    "keywords": ["ssrf", "server-side request forgery", "request"],
+    "rule": "Validate all URLs against an allowlist of permitted domains or IP ranges. Do not allow requests to internal network resources (e.g., 127.0.0.1, 169.254.169.254)."
+  },
+  "xxe": {
+    "keywords": ["xxe", "xml external entity", "xml"],
+    "rule": "Disable external entity resolution when parsing XML. In Python, use defusedxml instead of the standard xml library."
+  }
+}

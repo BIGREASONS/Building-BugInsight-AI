@@ -7,6 +7,7 @@ class SwarmState(TypedDict):
     job_id: str
     issue_url: Optional[str]
     repo_url: Optional[str]
+    target_file: Optional[str]
     issue_text: str
     index_stats: Optional[Dict[str, Any]]
     
@@ -39,10 +40,20 @@ class SwarmState(TypedDict):
     validation_score: int
     is_patch_valid: bool
     validation_reasoning: str
+    repair_attempts: int
+    repaired_successfully: bool
 
     # Test Generation (Agent 4.5)
     regression_tests: str
     
+    # Diagnostic Fields (Phase A)
+    raw_fix_output: str
+    generated_patch_lines: int
+    original_lines: int
+    first_failed_gate: Optional[str]
+    failure_category: Optional[str]
+    failure_reason: Optional[str]
+
     # Test Execution (Agent 4.75)
     test_results: Dict[str, Any]
     tests_passed: bool
@@ -52,6 +63,9 @@ class SwarmState(TypedDict):
     
     # Pull Request (Agent 5)
     pr_url: Optional[str]
+    pr_mode: str
+    github_error: str
+    pr_number: Optional[int]
     
     # Sprint Planning (Agent 6)
     story_points: int

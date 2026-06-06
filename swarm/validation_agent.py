@@ -32,6 +32,8 @@ def validation_agent(state: SwarmState) -> SwarmState:
                 state["validation_score"] = 0
                 state["is_patch_valid"] = False
                 state["validation_reasoning"] = reason_or_warning
+                if not state.get("first_failed_gate"):
+                    state["first_failed_gate"] = "functional_preservation"
                 state["trace_logs"].append({
                     "agent": "Validation Agent", 
                     "log": "Patch rejected (Functional Preservation Failed)"
@@ -41,6 +43,8 @@ def validation_agent(state: SwarmState) -> SwarmState:
             state["validation_score"] = 0
             state["is_patch_valid"] = False
             state["validation_reasoning"] = f"Failed to fetch original file: {e}"
+            if not state.get("first_failed_gate"):
+                state["first_failed_gate"] = "functional_preservation"
             state["trace_logs"].append({
                 "agent": "Validation Agent", 
                 "log": f"Patch rejected (Fetch Failed: {e})"
@@ -89,6 +93,9 @@ def validation_agent(state: SwarmState) -> SwarmState:
             state["is_patch_valid"] = response.approved
             state["validation_reasoning"] = response.reasoning
             
+        if not state["is_patch_valid"] and not state.get("first_failed_gate"):
+            state["first_failed_gate"] = "validation"
+            
         if state.get("functional_warnings"):
             state["validation_reasoning"] = state["functional_warnings"] + "\n\n" + state["validation_reasoning"]
             
@@ -96,6 +103,8 @@ def validation_agent(state: SwarmState) -> SwarmState:
         state["validation_score"] = 0
         state["is_patch_valid"] = False
         state["validation_reasoning"] = f"Validation failed due to error: {str(e)}"
+        if not state.get("first_failed_gate"):
+            state["first_failed_gate"] = "validation"
         
     state["trace_logs"].append({
         "agent": "Validation Agent", 

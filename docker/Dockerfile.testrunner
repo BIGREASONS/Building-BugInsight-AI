@@ -1,0 +1,14 @@
+FROM python:3.10-slim
+
+# Install pytest and coverage
+RUN pip install --no-cache-dir pytest coverage
+
+# Set a non-root user for execution
+RUN useradd -m -s /bin/bash testuser
+USER testuser
+
+# Set working directory
+WORKDIR /app
+
+# The entrypoint will simply be pytest, which we override or append to in docker run
+ENTRYPOINT ["pytest"]

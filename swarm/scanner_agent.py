@@ -34,27 +34,34 @@ def scanner_agent(state: SwarmState) -> SwarmState:
         if clone_result.returncode != 0:
             raise RuntimeError(f"Git clone failed: {clone_result.stderr}")
             
+        target_file = state.get("target_file")
+        scan_path = os.path.join(temp_dir, target_file) if target_file else temp_dir
+        
         # Run Semgrep
         semgrep_cmd = [
             "semgrep", 
             "scan", 
             "--config", "auto", 
             "--json", 
-            temp_dir
+            scan_path
         ]
         
         try:
-            semgrep_result = subprocess.run(semgrep_cmd, capture_output=True, text=True)
+            semgrep_result = subprocess.run(semgrep_cmd, capture_output=True, text=True, timeout=120)
             if semgrep_result.returncode != 0 and semgrep_result.returncode != 1:
                 raise RuntimeError(f"Semgrep crashed: {semgrep_result.stderr}")
             if semgrep_result.stdout:
                 parsed_semgrep = json.loads(semgrep_result.stdout)
                 for finding in parsed_semgrep.get("results", []):
+                    # In file path, semgrep might output absolute or relative depending on scan_path
+                    file_path = finding.get("path", "").replace(temp_dir + os.sep, "").replace(temp_dir + "/", "")
+                    if target_file and target_file not in file_path:
+                        continue
                     findings.append({
                         "tool": "semgrep",
                         "rule": finding.get("check_id", "unknown"),
                         "severity": finding.get("extra", {}).get("severity", "UNKNOWN"),
-                        "file": finding.get("path", "").replace(temp_dir + os.sep, "").replace(temp_dir + "/", ""),
+                        "file": file_path,
                         "line": finding.get("start", {}).get("line", 0),
                         "description": finding.get("extra", {}).get("message", "")
                     })
@@ -68,12 +75,14 @@ def scanner_agent(state: SwarmState) -> SwarmState:
         # Run Bandit (Python only)
         bandit_cmd = [
             "bandit",
-            "-r", temp_dir,
+            "-r", scan_path,
             "-f", "json"
         ]
         
         try:
-            bandit_result = subprocess.run(bandit_cmd, capture_output=True, text=True)
+            bandit_result = subprocess.run(bandit_cmd, capture_output=True, text=True, timeout=120)
+            if bandit_result.returncode != 0 and bandit_result.returncode != 1:
+                raise RuntimeError(f"Bandit crashed: {bandit_result.stderr}")
             if bandit_result.stdout:
                 parsed_bandit = json.loads(bandit_result.stdout)
                 for finding in parsed_bandit.get("results", []):
@@ -90,6 +99,7 @@ def scanner_agent(state: SwarmState) -> SwarmState:
                 "agent": "Scanner Agent", 
                 "log": f"Bandit scan failed: {e}"
             })
+            raise RuntimeError(f"Scanner Agent failed: {e}")
 
     except Exception as e:
         state["trace_logs"].append({

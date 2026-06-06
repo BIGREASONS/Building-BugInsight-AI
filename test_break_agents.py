@@ -2,7 +2,7 @@ import json
 import asyncio
 from swarm.state import SwarmState
 from swarm.validation_agent import validation_agent
-from swarm.test_execute_agent import execute_tests_agent
+from swarm.test_execute_agent import test_execute_agent
 from swarm.auto_rescan_agent import auto_rescan_agent
 
 repo_url = "https://github.com/BIGREASONS/buginsight-demo"
@@ -47,7 +47,7 @@ def test_fail():
         "patched_code": good_patched_code,
         "trace_logs": []
     }
-    state = execute_tests_agent(state)
+    state = test_execute_agent(state)
     assert state.get('tests_passed') == False
 
 def test_auto_rescan_catches_remaining_vuln():

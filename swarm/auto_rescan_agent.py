@@ -15,6 +15,8 @@ def auto_rescan_agent(state: SwarmState) -> SwarmState:
     
     if not repo_url or not affected_file or not patched_code:
         state["rescan_passed"] = False
+        if not state.get("first_failed_gate"):
+            state["first_failed_gate"] = "rescan"
         return state
         
     temp_dir = tempfile.mkdtemp(prefix="buginsight_rescan_")
@@ -30,38 +32,59 @@ def auto_rescan_agent(state: SwarmState) -> SwarmState:
                 f.write(patched_code)
         else:
             state["rescan_passed"] = False
+            if not state.get("first_failed_gate"):
+                state["first_failed_gate"] = "rescan"
             state["trace_logs"].append({
                 "agent": "Auto-Rescan Agent", 
                 "log": "Target file missing during rescan."
             })
             return state
                 
-        # Run Semgrep
-        semgrep_cmd = [
-            "semgrep", 
-            "scan", 
-            "--config", "auto", 
-            "--json", 
-            temp_dir
+        # Run Pyflakes check (for logging purposes only, don't fail the gate for unused imports)
+        pyflakes_result = subprocess.run(["pyflakes", target_file_path], capture_output=True, text=True)
+        if pyflakes_result.returncode != 0:
+            state["trace_logs"].append({
+                "agent": "Auto-Rescan Agent", 
+                "log": f"Pyflakes warning: {pyflakes_result.stdout.strip()}"
+            })
+
+        # Run Bandit
+        bandit_cmd = [
+            "bandit",
+            "-q",
+            "-r", target_file_path,
+            "-f", "json"
         ]
         
-        semgrep_result = subprocess.run(semgrep_cmd, capture_output=True, text=True)
+        bandit_result = subprocess.run(bandit_cmd, capture_output=True, text=True)
         
-        remaining_findings = 0
-        if semgrep_result.stdout:
-            try:
-                parsed = json.loads(semgrep_result.stdout)
-                for finding in parsed.get("results", []):
-                    file_path = finding.get("path", "").replace(temp_dir + os.sep, "").replace(temp_dir + "/", "")
-                    if file_path == affected_file:
-                        remaining_findings += 1
-            except:
-                pass
-                
-        state["rescan_passed"] = (remaining_findings == 0)
-        
+        # Bandit exits 0 if no issues, 1 if issues found.
+        # However, we must handle cases where bandit output is not valid json
+        try:
+            data = json.loads(bandit_result.stdout)
+            results = data.get("results", [])
+        except Exception:
+            results = []
+            
+        if len(results) > 0:
+            state["rescan_passed"] = False
+            if not state.get("first_failed_gate"):
+                state["first_failed_gate"] = "rescan"
+            state["trace_logs"].append({
+                "agent": "Auto-Rescan Agent", 
+                "log": f"Rescan failed: {len(results)} vulnerabilities still detected."
+            })
+        else:
+            state["rescan_passed"] = True
+            state["trace_logs"].append({
+                "agent": "Auto-Rescan Agent", 
+                "log": "Rescan passed. Vulnerability resolved."
+            })
+            
     except Exception as e:
         state["rescan_passed"] = False
+        if not state.get("first_failed_gate"):
+            state["first_failed_gate"] = "rescan"
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
         

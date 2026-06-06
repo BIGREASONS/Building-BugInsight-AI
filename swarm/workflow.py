@@ -3,12 +3,12 @@ import requests
 from langgraph.graph import StateGraph, END
 from swarm.state import SwarmState
 from swarm.repo_agent import clone_and_index_repo, retrieve_context
-from swarm.agents import root_cause_agent, fix_agent, sprint_planning_agent, generate_severity_reasoning
+from swarm.agents import root_cause_agent, fix_agent, repair_agent, sprint_planning_agent, generate_severity_reasoning
 from swarm.github_agent import github_action_agent
 from swarm.scanner_agent import scanner_agent
-from swarm.test_agent import generate_tests_agent
+from swarm.test_agent import test_agent
 from swarm.validation_agent import validation_agent
-from swarm.test_execute_agent import execute_tests_agent
+from swarm.test_execute_agent import test_execute_agent
 from swarm.auto_rescan_agent import auto_rescan_agent
 
 def repo_node(state: SwarmState) -> SwarmState:
@@ -92,12 +92,22 @@ workflow.add_node("scanner_agent", scanner_agent)
 workflow.add_node("severity_agent", severity_node)
 workflow.add_node("root_cause_agent", root_cause_agent)
 workflow.add_node("fix_agent", fix_agent)
+workflow.add_node("repair_agent", repair_agent)
 workflow.add_node("validation_agent", validation_agent)
-workflow.add_node("test_agent", generate_tests_agent)
-workflow.add_node("test_execute_agent", execute_tests_agent)
+workflow.add_node("test_agent", test_agent)
+workflow.add_node("test_execute_agent", test_execute_agent)
 workflow.add_node("auto_rescan_agent", auto_rescan_agent)
 workflow.add_node("github_agent", github_action_agent)
 workflow.add_node("sprint_agent", sprint_planning_agent)
+
+def route_validation(state: SwarmState) -> str:
+    if state.get("is_patch_valid"):
+        return "auto_rescan_agent"
+    elif state.get("repair_attempts", 0) < 1:
+        return "repair_agent"
+    else:
+        # Give up and go to github_agent to report failure
+        return "github_agent"
 
 # Define edges
 workflow.set_entry_point("repo_agent")
@@ -106,7 +116,8 @@ workflow.add_edge("scanner_agent", "severity_agent")
 workflow.add_edge("severity_agent", "root_cause_agent")
 workflow.add_edge("root_cause_agent", "fix_agent")
 workflow.add_edge("fix_agent", "validation_agent")
-workflow.add_edge("validation_agent", "test_agent")
+workflow.add_conditional_edges("validation_agent", route_validation)
+workflow.add_edge("repair_agent", "validation_agent")
 workflow.add_edge("test_agent", "test_execute_agent")
 workflow.add_edge("test_execute_agent", "auto_rescan_agent")
 workflow.add_edge("auto_rescan_agent", "github_agent")

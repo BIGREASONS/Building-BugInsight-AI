@@ -9,7 +9,7 @@ BugInsight Swarm is an autonomous, multi-agent AI system designed to eliminate t
 
 ## 🏗️ Architecture
 
-BugInsight leverages a 6-agent LangGraph workflow backed by specialized models.
+BugInsight leverages an 11-agent LangGraph workflow backed by specialized models and automated verification logic.
 
 ```mermaid
 graph TD
@@ -18,15 +18,22 @@ graph TD
     
     subgraph LangGraph Orchestration
         C --> D[1. Repository Agent]
-        D --> E[2. Severity Agent]
-        E --> F[3. Root Cause Agent]
-        F --> G[4. Fix Agent]
-        G --> H[5. GitHub Agent]
-        H --> I[6. Sprint Agent]
+        D --> S[2. Scanner Agent]
+        S --> E[3. Severity Agent]
+        E --> F[4. Root Cause Agent]
+        F --> G[5. Fix Agent]
+        G --> V[6. Validation Agent]
+        V --> T[7. Test Agent]
+        T --> X[8. Test Execute Agent]
+        X --> R[9. Auto Rescan Agent]
+        R --> H[10. GitHub Agent]
+        H --> I[11. Sprint Agent]
     end
     
     D <--> J[(ChromaDB Cache)]
     D --> K[Git Clone & Chunking]
+    
+    S <--> Sem[Semgrep & Bandit]
     
     E <--> L((Fine-Tuned CodeBERT))
     
@@ -40,12 +47,17 @@ graph TD
 ```
 
 ### The Swarm Agents
-1. **Repository Agent:** Performs a `git clone`, chunks source code, and semantically indexes the entire repository into ChromaDB. Built with a high-performance **Repository Cache** that reduces repeat analysis from minutes to milliseconds.
-2. **Severity Agent:** Interfaces with a custom-trained **CodeBERT** model to predict the critical severity (P0-P4) of the issue.
-3. **Root Cause Agent:** Uses **Qwen2.5-Coder** via local Ollama to ingest the semantic search context and deduce the exact file and lines causing the bug.
-4. **Fix Agent:** Generates a targeted, PR-ready `git diff` patch.
-5. **GitHub Agent:** Opens an actual Pull Request via the GitHub API (or operates in mock mode).
-6. **Sprint Agent:** Calculates estimated developer time saved and assigns Agile story points.
+1. **Repository Agent:** Performs a `git clone`, chunks source code, and semantically indexes the entire repository into ChromaDB. Built with a high-performance **Repository Cache**.
+2. **Scanner Agent:** Runs Semgrep and Bandit against the cloned repository to find specific vulnerable code blocks based on the user's issue.
+3. **Severity Agent:** Interfaces with a custom-trained **CodeBERT** model to predict the critical severity (P0-P4) of the issue.
+4. **Root Cause Agent:** Uses **Qwen2.5-Coder** via local Ollama to ingest the semantic search context and deduce the exact file and lines causing the bug.
+5. **Fix Agent:** Generates a full-file, context-aware replacement fix.
+6. **Validation Agent:** Provides strict Functional Preservation checks to ensure the fix safely patches the code without destroying surrounding logic or introducing secondary vulnerabilities.
+7. **Test Agent:** Generates Pytest regression tests tailored specifically for the generated patch.
+8. **Test Execute Agent:** Safely executes the generated regression tests against the patched code inside an isolated workspace.
+9. **Auto Rescan Agent:** Re-runs the scanner tools on the patched code to verify the original vulnerability has been eradicated.
+10. **GitHub Agent:** Opens a live Pull Request containing the patch, validation score, test results, and rescan status via the GitHub API (or operates in mock mode).
+11. **Sprint Agent:** Calculates estimated developer time saved and assigns Agile story points.
 
 ## 🚀 Key Features
 

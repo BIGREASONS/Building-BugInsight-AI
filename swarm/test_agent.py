@@ -7,7 +7,7 @@ from swarm.agents import primary_llm, fallback_llm
 class GenerateTestsOutput(BaseModel):
     regression_tests: str = Field(description="The complete regression test code to verify the fix.")
 
-def generate_tests_agent(state: SwarmState) -> SwarmState:
+def test_agent(state: SwarmState) -> SwarmState:
     """Agent 4.5: Generates regression tests for the generated fix."""
     state["current_agent"] = "Test Agent"
     
