@@ -211,44 +211,52 @@ def fix_agent(state: SwarmState) -> SwarmState:
         logger.error(f"Error loading remediation rules: {e}")
     
     prompt_template = (
-        "You are a security remediation specialist.\n"
-        "Your task is to fix a security vulnerability found in the following localized code block.\n\n"
-        "Function Name: {function_name}\n"
-        "ORIGINAL CODE WINDOW (Lines {start_line} to {end_line}):\n"
+        "You are a senior security engineer.\n"
+        "Your task is to remediate a vulnerability in the provided code.\n\n"
+        "CRITICAL REQUIREMENTS:\n"
+        "1. The vulnerable API MUST NOT remain anywhere in the final code.\n"
+        "2. Remove or replace the vulnerable code completely.\n"
+        "3. Do NOT add a second return statement after the vulnerable return.\n"
+        "4. Do NOT leave dead code.\n"
+        "5. Preserve the existing function name, arguments, and behavior whenever possible.\n"
+        "6. Preserve all unrelated code exactly.\n"
+        "7. Do NOT rewrite the application architecture.\n"
+        "8. Do NOT introduce new frameworks, ORMs, or helper classes.\n"
+        "9. Do NOT use placeholders such as \"...\", \"# existing code\", or pseudocode.\n"
+        "10. Output valid executable Python code only.\n\n"
+        "VULNERABILITY DETAILS:\n"
+        "Type: {root_cause}\n"
+        "Description: {issue}\n"
+        "{remediation_guidance}\n"
+        "ORIGINAL FUNCTION:\n"
         "```python\n"
         "{isolated_window}\n"
         "```\n\n"
-        "VULNERABILITY DETAILS:\n"
-        "- Root Cause: {root_cause}\n"
-        "- Description: {issue}\n"
-        "{remediation_guidance}\n"
-        "INSTRUCTIONS:\n"
-        "1. Rewrite the code window to fully resolve the vulnerability.\n"
-        "2. Preserve original logic, variables, and function signatures. You may ONLY modify this function.\n"
-        "3. Do not modify global variables or other classes.\n"
-        "4. If your fix requires adding a new import (e.g., `import re`), do NOT write it in the code block. List it inside the <required_imports> tag.\n"
-        "5. Return ONLY the new, corrected block of code inside <fixed_window> and <required_imports> tags. No explanations.\n\n"
-        "Example response format:\n"
-        "<required_imports>\n"
-        "import hashlib\n"
-        "</required_imports>\n"
+        "SECURITY REQUIREMENT:\n"
+        "The vulnerable API must not appear anywhere in the final output.\n\n"
+        "Before producing the final code, verify:\n"
+        "* The vulnerable API has been removed.\n"
+        "* The code compiles.\n"
+        "* All referenced variables exist.\n"
+        "* Only the minimum required changes were made.\n\n"
+        "Return ONLY:\n"
         "<fixed_window>\n"
-        "def verify_hash(user_input):\n"
-        "    return hashlib.sha256(user_input.encode()).hexdigest()\n"
-        "</fixed_window>\n"
+        "...fixed code...\n"
+        "</fixed_window>\n\n"
+        "Optional imports:\n"
+        "<required_imports>\n"
+        "...\n"
+        "</required_imports>\n"
     )
 
     prompt = PromptTemplate(
         template=prompt_template,
-        input_variables=["function_name", "start_line", "end_line", "isolated_window", "root_cause", "issue", "remediation_guidance"]
+        input_variables=["isolated_window", "root_cause", "issue", "remediation_guidance"]
     )
     chain = (prompt | primary_llm_text | StrOutputParser()).with_fallbacks([prompt | fallback_llm_text | StrOutputParser()])
     
     try:
         response_text = chain.invoke({
-            "function_name": window_data["function_name"],
-            "start_line": window_data["start_line"] + 1,
-            "end_line": window_data["end_line"],
             "isolated_window": window_data["window_code"],
             "root_cause": state.get("root_cause", ""),
             "issue": state.get("issue_text", ""),
@@ -342,10 +350,20 @@ def repair_agent(state: SwarmState) -> SwarmState:
         logger.error(f"Error loading remediation rules: {e}")
     
     prompt_template = (
-        "You are a security remediation specialist repairing a broken code patch.\n"
+        "You are a senior security engineer repairing a broken code patch.\n"
         "Your previous patch failed validation. Produce a corrected patch that fixes the vulnerability AND addresses the validation failure.\n\n"
-        "Function Name: {function_name}\n"
-        "ORIGINAL CODE WINDOW:\n"
+        "CRITICAL REQUIREMENTS:\n"
+        "1. The vulnerable API MUST NOT remain anywhere in the final code.\n"
+        "2. Remove or replace the vulnerable code completely.\n"
+        "3. Do NOT add a second return statement after the vulnerable return.\n"
+        "4. Do NOT leave dead code.\n"
+        "5. Preserve the existing function name, arguments, and behavior whenever possible.\n"
+        "6. Preserve all unrelated code exactly.\n"
+        "7. Do NOT rewrite the application architecture.\n"
+        "8. Do NOT introduce new frameworks, ORMs, or helper classes.\n"
+        "9. Do NOT use placeholders such as \"...\", \"# existing code\", or pseudocode.\n"
+        "10. Output valid executable Python code only.\n\n"
+        "ORIGINAL FUNCTION:\n"
         "```python\n"
         "{isolated_window}\n"
         "```\n\n"
@@ -354,22 +372,31 @@ def repair_agent(state: SwarmState) -> SwarmState:
         "VALIDATION FAILURE REASON (Fix this!):\n"
         "{validation_reasoning}\n"
         "{remediation_guidance}\n"
-        "INSTRUCTIONS:\n"
-        "1. Rewrite the code window to fully resolve the vulnerability AND the syntax/validation errors above.\n"
-        "2. Preserve original logic, variables, and function signatures. You may ONLY modify this function.\n"
-        "3. If your fix requires adding a new import, list it inside the <required_imports> tag.\n"
-        "4. Return ONLY the new, corrected block of code inside <fixed_window> and <required_imports> tags. No explanations.\n"
+        "SECURITY REQUIREMENT:\n"
+        "The vulnerable API must not appear anywhere in the final output.\n\n"
+        "Before producing the final code, verify:\n"
+        "* The vulnerable API has been removed.\n"
+        "* The code compiles.\n"
+        "* All referenced variables exist.\n"
+        "* Only the minimum required changes were made.\n\n"
+        "Return ONLY:\n"
+        "<fixed_window>\n"
+        "...fixed code...\n"
+        "</fixed_window>\n\n"
+        "Optional imports:\n"
+        "<required_imports>\n"
+        "...\n"
+        "</required_imports>\n"
     )
 
     prompt = PromptTemplate(
         template=prompt_template,
-        input_variables=["function_name", "isolated_window", "previous_patch", "validation_reasoning", "remediation_guidance"]
+        input_variables=["isolated_window", "previous_patch", "validation_reasoning", "remediation_guidance"]
     )
     chain = (prompt | primary_llm_text | StrOutputParser()).with_fallbacks([prompt | fallback_llm_text | StrOutputParser()])
     
     try:
         response_text = chain.invoke({
-            "function_name": window_data["function_name"],
             "isolated_window": window_data["window_code"],
             "previous_patch": previous_response,
             "validation_reasoning": validation_reasoning,

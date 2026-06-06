@@ -22,6 +22,31 @@ def validation_agent(state: SwarmState) -> SwarmState:
     repo_url = state.get("repo_url", "")
     vulnerable_code = state.get("vulnerable_code", "")
     
+    # 0. Hard Validation Gates (Fast-Fail)
+    if vulnerable_code and vulnerable_code.strip() and vulnerable_code.strip() in patched_code:
+        state["validation_score"] = 0
+        state["is_patch_valid"] = False
+        state["validation_reasoning"] = "Original vulnerable code still present in the patched output."
+        if not state.get("first_failed_gate"):
+            state["first_failed_gate"] = "hard_validation"
+        state["trace_logs"].append({
+            "agent": "Validation Agent", 
+            "log": "Patch rejected (Hard Gate: Original vulnerable code still present)"
+        })
+        return state
+
+    if "pickle.loads(" in patched_code:
+        state["validation_score"] = 0
+        state["is_patch_valid"] = False
+        state["validation_reasoning"] = "Unsafe deserialization (pickle.loads) still present."
+        if not state.get("first_failed_gate"):
+            state["first_failed_gate"] = "hard_validation"
+        state["trace_logs"].append({
+            "agent": "Validation Agent", 
+            "log": "Patch rejected (Hard Gate: Unsafe deserialization still present)"
+        })
+        return state
+
     # 1. Functional Preservation Check (Heuristic Fast-Fail)
     if repo_url and affected_file:
         try:
