@@ -1,5 +1,6 @@
 import ast
 import re
+import textwrap
 from typing import Dict, Any, Optional, Tuple
 
 class TargetNodeVisitor(ast.NodeVisitor):
@@ -83,23 +84,62 @@ def extract_surgical_window(file_content: str, target_line: int, window_size: in
         "window_code": "\n".join(window_lines)
     }
 
+def extract_clean_code(llm_response: str) -> str:
+    """
+    Extracts the raw python code from the LLM response, prioritizing XML tags,
+    then Markdown fences, and falling back to raw text while stripping conversational filler.
+    """
+    # 1. Try to extract from <fixed_window> tags first (Highest priority)
+    xml_match = re.search(r"<fixed_window>\s*(.*?)\s*</fixed_window>", llm_response, re.DOTALL)
+    if xml_match:
+        fixed_window = xml_match.group(1).strip()
+        fixed_window = re.sub(r"```[a-zA-Z]*\s*", "", fixed_window)
+        return fixed_window.replace("```", "").strip()
+
+    # 2. Try to extract from Markdown fences
+    markdown_match = re.search(r"```[a-zA-Z]*\n(.*?)\n```", llm_response, re.DOTALL)
+    if markdown_match:
+        return markdown_match.group(1).strip()
+
+    # 3. Fallback: If no tags or fences, the LLM might have just output the raw code.
+    lines = llm_response.splitlines()
+    clean_lines = []
+    in_code_block = False
+    
+    for line in lines:
+        if re.match(r"^\s*(def |import |from |return |class |@)", line):
+            in_code_block = True
+            
+        if in_code_block:
+            clean_lines.append(line)
+
+    if clean_lines:
+        return "\n".join(clean_lines).strip()
+    
+    return llm_response.strip()
+
+
 def parse_and_splice(original_file_content: str, llm_response: str, start_idx: int, end_idx: int) -> Tuple[str, str, str]:
     """
     Returns: (spliced_file_content, fixed_window, new_imports)
     Raises SyntaxError if the fixed_window itself fails to parse.
     """
-    # 1. Extract the fixed window
-    window_match = re.search(r"<fixed_window>(.*?)</fixed_window>", llm_response, re.DOTALL)
-    if not window_match:
-        # Fallback to basic code block stripping
-        clean_code = re.sub(r"```[a-zA-Z]*\n|```", "", llm_response).strip("\r\n")
-        fixed_window = clean_code
-    else:
-        fixed_window = window_match.group(1).strip("\r\n")
+    # 1. Extract the fixed window using the bulletproof extractor
+    fixed_window = extract_clean_code(llm_response)
+    
+    # --- DIAGNOSTIC HOOK START ---
+    print("\n===== PATCH START =====")
+    print(repr(fixed_window))
+    print("===== PATCH END =====\n")
+    
+    print("===== LINE-BY-LINE START =====")
+    for i, line in enumerate(fixed_window.splitlines(), start=1):
+        print(f"{i:03d}: {line}")
+    print("===== LINE-BY-LINE END =====\n")
+    # --- DIAGNOSTIC HOOK END ---
         
     # AST Check immediately on the fixed window
     try:
-        # We wrap in a try-except to ensure we fail fast if the LLM output is broken Python
         ast.parse(fixed_window)
     except SyntaxError as e:
         raise SyntaxError(f"AST parsing failed on the generated window: {e}")
@@ -111,15 +151,28 @@ def parse_and_splice(original_file_content: str, llm_response: str, start_idx: i
         imports_text = imports_match.group(1).strip()
         new_imports = [line.strip() for line in imports_text.splitlines() if line.strip()]
         
-    # 3. Splice the window back into the file
+    # 3. Splice the window back into the file preserving indentation
     lines = original_file_content.splitlines()
-    lines[start_idx:end_idx] = fixed_window.splitlines()
+    original_window_lines = lines[start_idx:end_idx]
+    
+    if original_window_lines:
+        first_line = original_window_lines[0]
+        leading_spaces = len(first_line) - len(first_line.lstrip())
+        indent_string = " " * leading_spaces
+        
+        dedented_fix = textwrap.dedent(fixed_window)
+        properly_indented_fix = textwrap.indent(dedented_fix, indent_string)
+        fixed_window_lines = properly_indented_fix.splitlines()
+    else:
+        fixed_window_lines = fixed_window.splitlines()
+        
+    lines[start_idx:end_idx] = fixed_window_lines
     
     # 4. Safely inject new imports at the top of the file
     if new_imports:
         import_lines = []
         for imp in new_imports:
-            if imp not in original_file_content:
+            if imp not in original_file_content and imp not in fixed_window:
                 import_lines.append(imp)
         if import_lines:
             lines = import_lines + [""] + lines
