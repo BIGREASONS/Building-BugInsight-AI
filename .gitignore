@@ -1,45 +1,78 @@
-# =============================================================================
-# BugInsight AI — .gitignore
-# =============================================================================
-
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-*.egg-info/
-dist/
-build/
-*.egg
 
-# Virtual environments
+# Virtual Environments
 venv/
 .venv/
 env/
 
-# IDE
+# Environment Variables & Secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Pytest
+.pytest_cache/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Logs
+*.log
+logs/
+
+# Build Artifacts
+build/
+dist/
+*.egg-info/
+
+# IDEs
 .vscode/
 .idea/
-*.swp
-*.swo
 
-# OS
+# OS Files
 .DS_Store
 Thumbs.db
 
-# Outputs (tracked selectively)
-outputs/models/
-outputs/logs/
-outputs/figures/*.png
-outputs/metrics/*.json
+# Node.js / Next.js
+node_modules/
+.next/
+out/
 
-# Data (raw data should not be committed)
-data/raw/
-data/processed/
+# ChromaDB / Vector Stores
+chroma/
+chromadb/
+vector_db/
+vectorstore/
 
-# Jupyter checkpoints
-.ipynb_checkpoints/
+# Model Outputs
+outputs/
+models/
+checkpoints/
 
-# Misc
-*.zip
-*.tar.gz
+# Ollama / AI Artifacts
+*.gguf
+
+# Benchmark Artifacts
+benchmark_results/
+benchmarks/output/
+
+# Temporary Files
+tmp/
+temp/
+
+# GitHub Tokens / Credentials
+secrets.json
+credentials.json
+
+# Local Test Artifacts
+sandbox_output.txt
+verify.log
+bad_patch_run.txt
+break_test_results.txt
+end_to_end_results.txt
+phase5_output.txt
