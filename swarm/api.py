@@ -23,6 +23,9 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from models.codebert_classifier import CodeBERTClassifier
 from configs.config_loader import load_config
+from swarm.github_agent import create_live_pr
+from swarm.state import GLOBAL_GITHUB_SETTINGS
+from github import Github
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -144,6 +147,72 @@ def _predict_severity(issue_text: str):
 
         return pred_label, confidence
 
+# --- GitHub Settings Endpoints ---
+class GitHubSettingsRequest(BaseModel):
+    github_token: str
+    github_mode: str
+
+@app.post("/api/settings/github")
+async def update_github_settings(req: GitHubSettingsRequest):
+    GLOBAL_GITHUB_SETTINGS["token"] = req.github_token
+    GLOBAL_GITHUB_SETTINGS["mode"] = req.github_mode
+    return {"status": "ok"}
+
+@app.get("/api/settings/github/status")
+async def get_github_status():
+    token = GLOBAL_GITHUB_SETTINGS.get("token")
+    if not token:
+        return {"connected": False, "username": None, "mode": GLOBAL_GITHUB_SETTINGS.get("mode")}
+    try:
+        g = Github(token)
+        user = g.get_user()
+        return {"connected": True, "username": user.login, "mode": GLOBAL_GITHUB_SETTINGS.get("mode")}
+    except Exception as e:
+        print(f"GitHub verification failed: {repr(e)}")
+        return {"connected": False, "username": None, "error": str(e), "mode": GLOBAL_GITHUB_SETTINGS.get("mode")}
+
+class TestPRRequest(BaseModel):
+    repo_url: str
+
+@app.post("/api/settings/github/test_pr")
+async def create_test_pr(req: TestPRRequest):
+    token = GLOBAL_GITHUB_SETTINGS.get("token")
+    if not token:
+        raise HTTPException(status_code=400, detail="No GitHub token configured")
+    try:
+        repo_name = req.repo_url.rstrip("/").split("github.com/")[-1]
+        g = Github(token)
+        repo = g.get_repo(repo_name)
+        
+        # Get default branch
+        default_branch = repo.default_branch
+        ref = repo.get_git_ref(f"heads/{default_branch}")
+        
+        # Create branch
+        short_id = uuid.uuid4().hex[:6]
+        new_branch = f"buginsight/test-connection-{short_id}"
+        repo.create_git_ref(ref=f"refs/heads/{new_branch}", sha=ref.object.sha)
+        
+        # Create a dummy commit so the PR has a diff
+        import datetime
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        repo.create_file(
+            path=f".buginsight-test-{short_id}",
+            message="BugInsight connection test",
+            content=f"BugInsight connection test\nTimestamp: {now_str}\n",
+            branch=new_branch
+        )
+        
+        # Open PR
+        pr = repo.create_pull(
+            title="BugInsight System Test",
+            body="This is an automated PR to verify GitHub Integration settings for BugInsight Swarm. You can safely close this.",
+            head=new_branch,
+            base=default_branch
+        )
+        return {"status": "ok", "pr_url": pr.html_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- Job-based Swarm Execution with SSE ---
 
@@ -165,6 +234,31 @@ async def start_swarm(request: SwarmRequest):
     asyncio.create_task(_run_swarm(job_id))
 
     return JobResponse(job_id=job_id)
+
+
+class PRResponse(BaseModel):
+    pr_url: str
+    pr_mode: str
+
+@app.post("/api/swarm/pr/{job_id}", response_model=PRResponse)
+async def create_manual_pr(job_id: str):
+    """Manually creates a PR for a job, bypassing gating checks (Developer Override)."""
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Job not found.")
+        
+    job = jobs[job_id]
+    if not job.get("final_state"):
+        raise HTTPException(status_code=400, detail="Job has not completed yet or has no final state.")
+        
+    state = job["final_state"]
+    try:
+        updated_state = create_live_pr(state, force=True)
+        # Update the job's final state with the new PR url
+        job["final_state"] = updated_state
+        return PRResponse(pr_url=updated_state.get("pr_url", ""), pr_mode=updated_state.get("pr_mode", ""))
+    except Exception as e:
+        logger.exception("Failed to manually create PR")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 from fastapi import Header

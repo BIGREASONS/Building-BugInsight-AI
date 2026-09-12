@@ -11,6 +11,65 @@ export default function LandingPage() {
   const [issueText, setIssueText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  // GitHub Settings State
+  const [githubToken, setGithubToken] = useState("");
+  const [githubMode, setGithubMode] = useState("SAFE");
+  const [githubStatus, setGithubStatus] = useState<any>(null);
+  const [isSavingGithub, setIsSavingGithub] = useState(false);
+  const [isTestingPr, setIsTestingPr] = useState(false);
+  const [githubMsg, setGithubMsg] = useState("");
+
+  async function handleSaveGithub() {
+    setIsSavingGithub(true);
+    setGithubMsg("");
+    try {
+      await fetch(`${API_BASE}/api/settings/github`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ github_token: githubToken, github_mode: githubMode }),
+      });
+      
+      const res = await fetch(`${API_BASE}/api/settings/github/status`);
+      const data = await res.json();
+      setGithubStatus(data);
+      if (data.connected) {
+        setGithubMsg("Settings saved successfully.");
+      } else {
+        setGithubMsg(`Settings saved, but failed to connect to GitHub. Error: ${data.error || "Unknown"}`);
+      }
+    } catch (err: any) {
+      setGithubMsg("Error saving settings.");
+    } finally {
+      setIsSavingGithub(false);
+    }
+  }
+
+  async function handleTestPr() {
+    if (!repoUrl) {
+      setGithubMsg("Please enter a GitHub Repository URL above first.");
+      return;
+    }
+    setIsTestingPr(true);
+    setGithubMsg("");
+    try {
+      const res = await fetch(`${API_BASE}/api/settings/github/test_pr`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repo_url: repoUrl }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || "Failed to create PR");
+      }
+      const data = await res.json();
+      setGithubMsg(`Success! Test PR Created: ${data.pr_url}`);
+    } catch (err: any) {
+      setGithubMsg(`Error creating test PR: ${err.message}`);
+    } finally {
+      setIsTestingPr(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -105,6 +164,89 @@ export default function LandingPage() {
               rows={5}
               className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow resize-none"
             />
+          </div>
+
+          {/* GitHub Integration Panel */}
+          <div className="rounded-xl border border-zinc-700 bg-zinc-900/50 p-5 space-y-4">
+            <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+              GitHub Integration
+            </h3>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">GitHub Token</label>
+                <input
+                  type="password"
+                  value={githubToken}
+                  onChange={(e) => setGithubToken(e.target.value)}
+                  placeholder="ghp_****************"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-2">Repository Mode</label>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="githubMode"
+                      value="SAFE"
+                      checked={githubMode === "SAFE"}
+                      onChange={() => setGithubMode("SAFE")}
+                      className="text-indigo-500 focus:ring-indigo-500 bg-zinc-950 border-zinc-700"
+                    />
+                    Safe Demo Mode
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="githubMode"
+                      value="LIVE"
+                      checked={githubMode === "LIVE"}
+                      onChange={() => setGithubMode("LIVE")}
+                      className="text-indigo-500 focus:ring-indigo-500 bg-zinc-950 border-zinc-700"
+                    />
+                    Live PR Mode
+                  </label>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveGithub}
+                  disabled={isSavingGithub}
+                  className="rounded-lg bg-zinc-800 hover:bg-zinc-700 px-4 py-2 text-xs font-semibold text-white transition-colors disabled:opacity-50"
+                >
+                  {isSavingGithub ? "Saving..." : "Save Configuration"}
+                </button>
+                
+                {githubStatus && (
+                  <div className={`text-xs font-semibold flex items-center gap-1.5 ${githubStatus.connected ? 'text-green-400' : 'text-red-400'}`}>
+                    <span className={`h-2 w-2 rounded-full ${githubStatus.connected ? 'bg-green-500' : 'bg-red-500'}`} />
+                    {githubStatus.connected ? `Connected as ${githubStatus.username}` : 'Disconnected'}
+                  </div>
+                )}
+              </div>
+              
+              {githubStatus?.connected && githubMode === "LIVE" && (
+                <div className="pt-2 border-t border-zinc-800">
+                  <button
+                    type="button"
+                    onClick={handleTestPr}
+                    disabled={isTestingPr}
+                    className="rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 border border-indigo-500/30 px-4 py-2 text-xs font-semibold transition-colors disabled:opacity-50"
+                  >
+                    {isTestingPr ? "Creating Test PR..." : "Create Test Pull Request"}
+                  </button>
+                </div>
+              )}
+              
+              {githubMsg && (
+                <div className="text-xs text-zinc-400 mt-2">{githubMsg}</div>
+              )}
+            </div>
           </div>
 
           {/* Error */}

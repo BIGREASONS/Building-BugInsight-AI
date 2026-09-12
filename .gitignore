@@ -76,3 +76,5 @@ bad_patch_run.txt
 break_test_results.txt
 end_to_end_results.txt
 phase5_output.txt
+
+*.zip

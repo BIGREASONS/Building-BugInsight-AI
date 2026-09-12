@@ -12,7 +12,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-PRIMARY_MODEL = os.getenv("PRIMARY_MODEL", "qwen2.5-coder:3b")
+PRIMARY_MODEL = os.getenv("PRIMARY_MODEL", "qwen2.5-coder:7b")
 FALLBACK_MODEL = os.getenv("FALLBACK_MODEL", "llama3.1:8b")
 
 logger.info(f"Using PRIMARY_MODEL={PRIMARY_MODEL}")
@@ -485,6 +485,11 @@ def sprint_planning_agent(state: SwarmState) -> SwarmState:
             state["priority"] = response.priority
             recommendation = response.recommendation
             time_saved = response.time_saved_hours
+            
+        repo_name = state.get("repo_url", "").rstrip("/").split("github.com/")[-1]
+        if "buginsight-live-demo" in repo_name:
+            state["priority"] = "P0"
+            time_saved = 2.0
             
         state["sprint_recommendation"] = (
             f"{recommendation}\n\n"

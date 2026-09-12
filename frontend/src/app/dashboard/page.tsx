@@ -114,7 +114,33 @@ function DashboardContent() {
   const [error, setError] = useState("");
   const [swarmStartTime, setSwarmStartTime] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [isCreatingPr, setIsCreatingPr] = useState(false);
   const lastAgentTime = useRef<number>(Date.now());
+
+  const handleCreatePr = async () => {
+    if (!jobId) return;
+    setIsCreatingPr(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/swarm/pr/${jobId}`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || "Failed to create PR");
+      }
+      const data = await res.json();
+      setResults(prev => ({
+        ...prev,
+        pr_url: data.pr_url,
+        pr_mode: data.pr_mode
+      }));
+    } catch (err: any) {
+      setError(err.message || "Failed to override and create PR");
+    } finally {
+      setIsCreatingPr(false);
+    }
+  };
 
   // Timer — only starts counting when the first SSE event arrives
   useEffect(() => {
@@ -441,7 +467,13 @@ function DashboardContent() {
                   <div className="text-xs text-zinc-500 mt-1">Time Saved</div>
                 </div>
                 <div>
-                  <div className="text-3xl font-bold text-orange-400">{results.priority || "—"}</div>
+                  <div className="text-3xl font-bold text-orange-400">
+                    {severity?.toLowerCase() === 'critical' ? 'P0' : 
+                     severity?.toLowerCase() === 'major' ? 'P1' : 
+                     severity?.toLowerCase() === 'minor' ? 'P2' : 
+                     severity?.toLowerCase() === 'trivial' ? 'P3' : 
+                     (results.priority || "—")}
+                  </div>
                   <div className="text-xs text-zinc-500 mt-1">Priority</div>
                 </div>
                 <div>
@@ -708,22 +740,45 @@ function DashboardContent() {
               <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-3">
                 Generated Pull Request
               </h3>
-              <div className="flex items-center gap-3">
-                <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${
-                    effectivePrMode === "live"
-                      ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                      : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-                  }`}>
-                  {effectivePrMode === "live" ? "LIVE PR" : "SAFE DEMO MODE"}
-                </span>
-                {effectivePrMode === "live" ? (
-                  <a href={rawPrUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-400 hover:text-indigo-300 break-all font-mono hover:underline">
-                    {rawPrUrl}
-                  </a>
-                ) : (
-                  <span className="text-sm text-zinc-400 font-medium">
-                    Mock Pull Request Generated (Ready for GitHub)
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${
+                      effectivePrMode === "live"
+                        ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                        : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                    }`}>
+                    {effectivePrMode === "live" ? "LIVE PR" : "SAFE DEMO MODE"}
                   </span>
+                  {effectivePrMode === "live" ? (
+                    <a href={rawPrUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-400 hover:text-indigo-300 break-all font-mono hover:underline">
+                      {rawPrUrl}
+                    </a>
+                  ) : (
+                    <span className="text-sm text-zinc-400 font-medium">
+                      Mock Pull Request Generated (Ready for GitHub)
+                    </span>
+                  )}
+                </div>
+                {effectivePrMode === "mock" && results.patch && (
+                  <button
+                    onClick={handleCreatePr}
+                    disabled={isCreatingPr}
+                    className="mt-2 self-start inline-flex items-center gap-2 rounded-lg bg-orange-600/90 hover:bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isCreatingPr ? (
+                      <>
+                        <span className="inline-block h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                        Pushing Override...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Developer Override: Create PR
+                      </>
+                    )}
+                  </button>
                 )}
               </div>
             </div>

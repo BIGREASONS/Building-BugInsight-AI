@@ -75,3 +75,9 @@ class SwarmState(TypedDict):
     # Orchestration tracing
     current_agent: str
     trace_logs: List[Dict[str, Any]]
+
+# Global in-memory configuration for GitHub Agent
+GLOBAL_GITHUB_SETTINGS = {
+    "token": "",
+    "mode": "SAFE"
+}
